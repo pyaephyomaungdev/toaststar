@@ -46,6 +46,8 @@ import type {
   ThemeOption,
 } from "./types";
 
+const GITHUB_REPO_URL = "https://github.com/pyaephyomaungdev/toaststar";
+
 export function ReferenceLandingPage(props: ReferenceLandingPageProps) {
   const {
     hapticTrigger,
@@ -308,6 +310,15 @@ export function ReferenceLandingPage(props: ReferenceLandingPageProps) {
               </a>
               <a href="#api" className="whitespace-nowrap transition-colors hover:text-[#233760]">
                 API
+              </a>
+              <a
+                href={GITHUB_REPO_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="whitespace-nowrap transition-colors hover:text-[#233760]"
+                aria-label="Open the toaststar GitHub repository"
+              >
+                GitHub
               </a>
             </nav>
           </div>
