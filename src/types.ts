@@ -127,7 +127,7 @@ export interface ToastHistoryOptions {
 }
 
 export interface ToastProviderProps {
-  children: ReactNode;
+  children?: ReactNode;
   scope?: string;
   controller?: ToastController;
   position?: ToastPosition;
@@ -139,6 +139,8 @@ export interface ToastProviderProps {
   showProgress?: boolean;
   maxCollapsed?: number;
   maxVisible?: number;
+  burstMaxVisible?: number;
+  burstWindow?: number;
   queueLimit?: number;
   overflowStrategy?: ToastOverflowStrategy;
   dedupeBehavior?: ToastDedupeBehavior;
@@ -157,7 +159,7 @@ export interface ToastProviderProps {
   onToastAction?: (toast: ToastRecord) => void;
 }
 
-export interface ToastContextValue {
+export interface ToastActionContextValue {
   show: (input: ToastContentInput) => string;
   notify: (input: ToastContentInput) => string;
   loading: (input: ToastLoadingInput) => string;
@@ -172,11 +174,22 @@ export interface ToastContextValue {
   warning: (input: ToastVariantInput) => string;
   dismiss: (id: string) => void;
   clear: () => void;
+}
+
+export interface ToastStateContextValue {
   toasts: ToastRecord[];
-  history: ToastHistoryItem[];
-  clearHistory: () => Promise<void>;
   position: ToastPosition;
 }
+
+export interface ToastHistoryContextValue {
+  history: ToastHistoryItem[];
+  clearHistory: () => Promise<void>;
+}
+
+export interface ToastContextValue
+  extends ToastActionContextValue,
+    ToastStateContextValue,
+    ToastHistoryContextValue {}
 
 export interface ToastHistoryPanelProps {
   title?: string;

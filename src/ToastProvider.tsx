@@ -14,7 +14,11 @@ import {
   subscribeToToastCommands,
   toast,
 } from "./controller";
-import { ToastContext } from "./context/toastContext";
+import {
+  ToastActionsContext,
+  ToastHistoryContext,
+  ToastStateContext,
+} from "./context/toastContext";
 import {
   clearHistoryItems,
   listHistory,
@@ -23,6 +27,7 @@ import {
 } from "./history";
 import {
   CENTER_STAGE_DELAY,
+  DEFAULT_BURST_WINDOW,
   DEFAULT_DURATION,
   DEFAULT_EDGE_OFFSET,
   DEFAULT_EXIT_DURATION,
@@ -31,17 +36,16 @@ import {
   DEFAULT_INTRO_DURATION,
   DEFAULT_MAX_COLLAPSED,
   DEFAULT_MAX_VISIBLE,
-  DEFAULT_PROGRESS_TICK,
   DEFAULT_QUEUE_LIMIT,
   DEFAULT_Z_INDEX,
   EXPAND_HOVER_DISTANCE,
 } from "./provider/constants";
 import {
+  areHistoryItemsEqual,
   clearManagedTimeout,
   clampProgress,
   formatViewportTop,
   getOpenToasts,
-  getToastProgress,
   isToastCardTarget,
   mergeHistoryItems,
   normalizeLimit,
@@ -54,14 +58,16 @@ import {
 } from "./provider/utils";
 import { useToaststarStyles } from "./styles";
 import type {
+  ToastActionContextValue,
   ToastCloseReason,
   ToastContentInput,
-  ToastContextValue,
   ToastController,
+  ToastHistoryContextValue,
   ToastHistoryItem,
   ToastInput,
   ToastProviderProps,
   ToastRecord,
+  ToastStateContextValue,
   ToastUpdateInput,
 } from "./types";
 import { ToastCard } from "./components/ToastCard";
@@ -94,6 +100,8 @@ export function ToastProvider({
   showProgress = false,
   maxCollapsed = DEFAULT_MAX_COLLAPSED,
   maxVisible = DEFAULT_MAX_VISIBLE,
+  burstMaxVisible,
+  burstWindow = DEFAULT_BURST_WINDOW,
   queueLimit = DEFAULT_QUEUE_LIMIT,
   overflowStrategy = "queue",
   dedupeBehavior = "ignore",
@@ -129,6 +137,17 @@ export function ToastProvider({
     () => normalizeLimit(maxVisible, DEFAULT_MAX_VISIBLE),
     [maxVisible],
   );
+  const resolvedBurstMaxVisible = useMemo(() => {
+    if (!Number.isFinite(resolvedMaxVisible)) {
+      return resolvedMaxVisible;
+    }
+
+    if (typeof burstMaxVisible !== "number" || !Number.isFinite(burstMaxVisible)) {
+      return resolvedMaxVisible;
+    }
+
+    return Math.max(resolvedMaxVisible, Math.floor(burstMaxVisible));
+  }, [burstMaxVisible, resolvedMaxVisible]);
   const resolvedQueueLimit = useMemo(
     () => normalizeLimit(queueLimit, DEFAULT_QUEUE_LIMIT),
     [queueLimit],
@@ -141,12 +160,12 @@ export function ToastProvider({
     {},
   );
   const [queueCount, setQueueCount] = useState(0);
-  const [progressNow, setProgressNow] = useState(() => Date.now());
   const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
   const timersRef = useRef<Map<string, TimerEntry>>(new Map());
   const toastsRef = useRef<ToastRecord[]>([]);
   const pendingQueueRef = useRef<QueuedToastInput[]>([]);
   const aliasMapRef = useRef<Map<string, string>>(new Map());
+  const burstEventsRef = useRef<number[]>([]);
   const expandedRef = useRef(false);
   const collapseTimerRef = useRef<number>();
   const hoverIntentRef = useRef({
@@ -160,10 +179,23 @@ export function ToastProvider({
   }, [expanded]);
 
   const syncQueueCount = useCallback(() => {
-    startTransition(() => {
-      setQueueCount(pendingQueueRef.current.length);
+    const nextQueueCount = pendingQueueRef.current.length;
+    setQueueCount((currentQueueCount) => {
+      return currentQueueCount === nextQueueCount
+        ? currentQueueCount
+        : nextQueueCount;
     });
   }, []);
+
+  const registerBurstEvent = useCallback(() => {
+    const now = Date.now();
+    const activeEvents = burstEventsRef.current.filter(
+      (eventTime) => now - eventTime <= burstWindow,
+    );
+    activeEvents.push(now);
+    burstEventsRef.current = activeEvents;
+    return activeEvents.length;
+  }, [burstWindow]);
 
   const resolveToastId = useCallback((id: string): string => {
     let currentId = id;
@@ -179,11 +211,15 @@ export function ToastProvider({
 
   const commitToasts = useCallback(
     (updater: (currentToasts: ToastRecord[]) => ToastRecord[]) => {
-      const nextToasts = updater(toastsRef.current);
+      const currentToasts = toastsRef.current;
+      const nextToasts = updater(currentToasts);
+
+      if (nextToasts === currentToasts) {
+        return nextToasts;
+      }
+
       toastsRef.current = nextToasts;
-      startTransition(() => {
-        setToasts(nextToasts);
-      });
+      setToasts(nextToasts);
       return nextToasts;
     },
     [],
@@ -233,6 +269,25 @@ export function ToastProvider({
     [onToastAction],
   );
 
+  const syncHistoryItem = useCallback(
+    (toastRecord: ToastRecord) => {
+      if (!historyOptions.enabled) {
+        return;
+      }
+
+      const historyItem = toastToHistoryItem(toastRecord);
+      startTransition(() => {
+        setHistoryItems((currentHistory) =>
+          mergeHistoryItems(currentHistory, [historyItem], historyOptions.limit),
+        );
+      });
+      void saveHistoryItem(historyOptions, historyItem).catch((error) => {
+        swallowHistoryError(error, "save");
+      });
+    },
+    [historyOptions],
+  );
+
   const removeToast = useCallback(
     (id: string) => {
       const canonicalId = resolveToastId(id);
@@ -240,16 +295,14 @@ export function ToastProvider({
       commitToasts((currentToasts) =>
         currentToasts.filter((toastRecord) => toastRecord.id !== canonicalId),
       );
-      startTransition(() => {
-        setMeasuredHeights((currentHeights) => {
-          if (!(canonicalId in currentHeights)) {
-            return currentHeights;
-          }
+      setMeasuredHeights((currentHeights) => {
+        if (!(canonicalId in currentHeights)) {
+          return currentHeights;
+        }
 
-          const nextHeights = { ...currentHeights };
-          delete nextHeights[canonicalId];
-          return nextHeights;
-        });
+        const nextHeights = { ...currentHeights };
+        delete nextHeights[canonicalId];
+        return nextHeights;
       });
     },
     [clearToastTracking, commitToasts, resolveToastId],
@@ -494,26 +547,25 @@ export function ToastProvider({
       const patch = normalizeUpdateInput(input);
       const canonicalId = resolveToastId(id);
 
-      commitToasts((currentToasts) => {
-        const targetToast = currentToasts.find((toastRecord) => toastRecord.id === canonicalId);
-
-        if (!targetToast || targetToast.phase === "closing") {
-          return currentToasts;
-        }
-
-        const updatedToast = mergeToastRecord(targetToast, patch);
-        return [
-          updatedToast,
-          ...currentToasts.filter((toastRecord) => toastRecord.id !== canonicalId),
-        ];
-      });
-
-      const updatedToast = toastsRef.current.find(
+      const currentToast = toastsRef.current.find(
         (toastRecord) => toastRecord.id === canonicalId,
       );
 
-      if (!updatedToast) {
+      if (!currentToast || currentToast.phase === "closing") {
         return false;
+      }
+
+      const updatedToast = mergeToastRecord(currentToast, patch);
+      const previousHistoryItem = toastToHistoryItem(currentToast);
+      const nextHistoryItem = toastToHistoryItem(updatedToast);
+
+      commitToasts((currentToasts) => [
+        updatedToast,
+        ...currentToasts.filter((toastRecord) => toastRecord.id !== canonicalId),
+      ]);
+
+      if (!areHistoryItemsEqual(previousHistoryItem, nextHistoryItem)) {
+        syncHistoryItem(updatedToast);
       }
 
       const timers = timersRef.current.get(canonicalId) ?? {};
@@ -531,7 +583,14 @@ export function ToastProvider({
 
       return true;
     },
-    [commitToasts, mergeToastRecord, resolveToastId, scheduleDismiss, updateQueuedToast],
+    [
+      commitToasts,
+      mergeToastRecord,
+      resolveToastId,
+      scheduleDismiss,
+      syncHistoryItem,
+      updateQueuedToast,
+    ],
   );
 
   const enqueueToast = useCallback(
@@ -602,9 +661,16 @@ export function ToastProvider({
         }
       }
 
+      const burstCount = fromQueue ? 0 : registerBurstEvent();
+      const visibleLimit =
+        !fromQueue &&
+        burstCount >= 2 &&
+        resolvedBurstMaxVisible > resolvedMaxVisible
+          ? resolvedBurstMaxVisible
+          : resolvedMaxVisible;
       const openToasts = getOpenToasts(toastsRef.current);
 
-      if (openToasts.length >= resolvedMaxVisible) {
+      if (openToasts.length >= visibleLimit) {
         if (overflowStrategy === "queue" && !fromQueue) {
           enqueueToast(input);
           return;
@@ -644,17 +710,7 @@ export function ToastProvider({
       ]);
       notifyOpened(nextToast);
 
-      if (historyOptions.enabled) {
-        const historyItem = toastToHistoryItem(nextToast);
-        startTransition(() => {
-          setHistoryItems((currentHistory) =>
-            mergeHistoryItems(currentHistory, [historyItem], historyOptions.limit),
-          );
-        });
-        void saveHistoryItem(historyOptions, historyItem).catch((error) => {
-          swallowHistoryError(error, "save");
-        });
-      }
+      syncHistoryItem(nextToast);
 
       const timers = timersRef.current.get(nextToast.id) ?? {};
       clearManagedTimeout(timers.dock);
@@ -700,13 +756,15 @@ export function ToastProvider({
       defaultTheme,
       enqueueToast,
       evictToast,
-      historyOptions,
       introDuration,
       notifyOpened,
       overflowStrategy,
+      registerBurstEvent,
       reorderToastToFront,
+      resolvedBurstMaxVisible,
       resolvedMaxVisible,
       scheduleDismiss,
+      syncHistoryItem,
       updateQueuedToast,
       updateToastFromInput,
     ],
@@ -831,43 +889,6 @@ export function ToastProvider({
     syncQueueCount();
   }, [addToast, resolvedMaxVisible, syncQueueCount, toasts]);
 
-  const hasLiveProgress = useMemo(
-    () =>
-      toasts.some((toastRecord) => {
-        if (toastRecord.phase === "closing") {
-          return false;
-        }
-
-        const shouldShowProgress = toastRecord.showProgress ?? showProgress;
-
-        if (!shouldShowProgress) {
-          return false;
-        }
-
-        if (toastRecord.loading || typeof toastRecord.progress === "number") {
-          return true;
-        }
-
-        const timers = timersRef.current.get(toastRecord.id);
-        return Boolean(!toastRecord.persistent && timers?.autoCloseDuration);
-      }),
-    [showProgress, toasts],
-  );
-
-  useEffect(() => {
-    if (!hasLiveProgress) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setProgressNow(Date.now());
-    }, DEFAULT_PROGRESS_TICK);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [hasLiveProgress]);
-
   useEffect(() => {
     return () => {
       clearCollapseTimer();
@@ -884,17 +905,15 @@ export function ToastProvider({
   }, [clearCollapseTimer]);
 
   const handleMeasure = useCallback((id: string, height: number) => {
-    startTransition(() => {
-      setMeasuredHeights((currentHeights) => {
-        if (currentHeights[id] === height) {
-          return currentHeights;
-        }
+    setMeasuredHeights((currentHeights) => {
+      if (currentHeights[id] === height) {
+        return currentHeights;
+      }
 
-        return {
-          ...currentHeights,
-          [id]: height,
-        };
-      });
+      return {
+        ...currentHeights,
+        [id]: height,
+      };
     });
   }, []);
 
@@ -1007,7 +1026,7 @@ export function ToastProvider({
     [toastController],
   );
 
-  const contextValue: ToastContextValue = useMemo(
+  const actionsContextValue: ToastActionContextValue = useMemo(
     () => ({
       show,
       notify: show,
@@ -1020,16 +1039,9 @@ export function ToastProvider({
       warning: toastController.warning,
       dismiss: toastController.dismiss,
       clear: toastController.clear,
-      toasts,
-      history: historyItems,
-      clearHistory,
-      position,
     }),
     [
-      clearHistory,
-      historyItems,
       loading,
-      position,
       promise,
       show,
       toastController.clear,
@@ -1038,9 +1050,22 @@ export function ToastProvider({
       toastController.info,
       toastController.success,
       toastController.warning,
-      toasts,
       update,
     ],
+  );
+  const stateContextValue: ToastStateContextValue = useMemo(
+    () => ({
+      toasts,
+      position,
+    }),
+    [position, toasts],
+  );
+  const historyContextValue: ToastHistoryContextValue = useMemo(
+    () => ({
+      history: historyItems,
+      clearHistory,
+    }),
+    [clearHistory, historyItems],
   );
 
   let runningOffset = expanded ? expandedOffset : 0;
@@ -1075,12 +1100,6 @@ export function ToastProvider({
           toastRecord.phase !== "center" &&
           toastRecord.phase !== "docking";
         const stackCount = !expanded && index === 0 ? collapsedCount : 0;
-        const progress = getToastProgress(
-          toastRecord,
-          timersRef.current.get(toastRecord.id),
-          progressNow,
-          showProgress,
-        );
         const nextCard = (
           <ToastCard
             key={toastRecord.id}
@@ -1096,7 +1115,8 @@ export function ToastProvider({
             expanded={expanded}
             stackCount={stackCount}
             interactive={interactive}
-            progress={progress}
+            defaultShowProgress={showProgress}
+            timer={timersRef.current.get(toastRecord.id)}
             swipeToDismiss={swipeToDismiss}
             onDismiss={dismissToast}
             onAction={handleAction}
@@ -1119,13 +1139,17 @@ export function ToastProvider({
   );
 
   return (
-    <ToastContext.Provider value={contextValue}>
-      {children}
-      {layer
-        ? portalNode
-          ? createPortal(layer, portalNode)
-          : layer
-        : null}
-    </ToastContext.Provider>
+    <ToastActionsContext.Provider value={actionsContextValue}>
+      <ToastStateContext.Provider value={stateContextValue}>
+        <ToastHistoryContext.Provider value={historyContextValue}>
+          {children}
+          {layer
+            ? portalNode
+              ? createPortal(layer, portalNode)
+              : layer
+            : null}
+        </ToastHistoryContext.Provider>
+      </ToastStateContext.Provider>
+    </ToastActionsContext.Provider>
   );
 }

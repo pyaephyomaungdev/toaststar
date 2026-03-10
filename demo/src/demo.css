@@ -37,8 +37,13 @@
 }
 
 @layer base {
+  * {
+    min-width: 0;
+  }
+
   html {
     scroll-behavior: smooth;
+    overflow-x: hidden;
   }
 
   body {
@@ -79,6 +84,7 @@
 }
 
 @keyframes floatGlow {
+
   0%,
   100% {
     transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
@@ -120,4 +126,71 @@
   100% {
     transform: scale(1);
   }
+}
+
+@keyframes heroIntroReveal {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes heroIntroDrop {
+  0% {
+    transform: translate3d(-50%, -50%, 0) rotate(-280deg) scale(0.92);
+    opacity: 0;
+    filter: blur(10px);
+  }
+
+  10% {
+    opacity: 1;
+    filter: blur(0);
+  }
+
+  24% {
+    transform: translate3d(-50%, -50%, 0) rotate(-162deg) scale(1.02);
+  }
+
+  42% {
+    transform: translate3d(-50%, -50%, 0) rotate(-54deg) scale(1.06);
+  }
+
+  78% {
+    transform: translate3d(calc(-50% + var(--hero-intro-end-x)),
+        calc(-50% + var(--hero-intro-end-y) + 12px),
+        0) rotate(30deg) scale(1.04);
+  }
+
+  90% {
+    transform: translate3d(calc(-50% + var(--hero-intro-end-x)),
+        calc(-50% + var(--hero-intro-end-y) - 4px),
+        0) rotate(6deg) scale(1.01);
+  }
+
+  100% {
+    transform: translate3d(calc(-50% + var(--hero-intro-end-x)),
+        calc(-50% + var(--hero-intro-end-y)),
+        0) rotate(12deg) scale(1);
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.hero-intro-overlay {
+  transform-origin: center center;
+  animation: heroIntroDrop 1280ms cubic-bezier(0.18, 0.88, 0.24, 1) both;
+  will-change: transform, opacity, filter;
+  backface-visibility: hidden;
+}
+
+.hero-intro-content-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hero-intro-content-visible {
+  animation: heroIntroReveal 520ms cubic-bezier(0.2, 0.84, 0.24, 1) both;
 }

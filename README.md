@@ -145,6 +145,8 @@ checkoutToast.success("Checkout only");
 profileToast.success("Profile only");
 ```
 
+`ToastProvider` can be self-closing when you only need the toast layer.
+
 ## Custom component body
 
 ```tsx
@@ -183,6 +185,8 @@ toast.show({
   defaultTheme="midnight"
   maxCollapsed={4}
   maxVisible={3}
+  burstMaxVisible={6}
+  burstWindow={320}
   queueLimit={8}
   overflowStrategy="queue"
   dedupeBehavior="update"
@@ -200,6 +204,29 @@ toast.show({
   onToastAction={(toast) => console.log("action", toast.id)}
 />
 ```
+
+## React hooks
+
+```tsx
+import {
+  useToast,
+  useToastActions,
+  useToastHistory,
+  useToastState,
+} from "toaststar";
+
+function SaveButton() {
+  const { success } = useToastActions();
+
+  return (
+    <button type="button" onClick={() => success("Saved")}>
+      Save
+    </button>
+  );
+}
+```
+
+Use `useToastActions()` when a component only triggers toasts. It avoids subscribing that component to live toast/history state updates.
 
 ## Dedupe and queue control
 
@@ -219,6 +246,8 @@ toast.show({
 Use `dedupeBehavior="ignore" | "update" | "reset-duration"` on the provider to decide how repeated keys are handled.
 
 Use `overflowStrategy="queue" | "drop-oldest" | "drop-newest"` with `maxVisible` and `queueLimit` to control bursts.
+
+Set `burstMaxVisible` higher than `maxVisible` to let rapid bursts temporarily overshoot the steady-state cap before normal queueing resumes. Tune the burst detector with `burstWindow` in milliseconds.
 
 ## Feature toggles
 
@@ -298,3 +327,9 @@ The demo app lives in `demo/` and includes homepage-style usage examples for asy
 - History only persists when `history.enabled` is true and the browser supports IndexedDB.
 - `portalTarget` defaults to `document.body`. Pass `false` to disable the portal.
 - The package targets React 18 and newer.
+
+## Community
+
+- Contributions are welcome. Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md).
+- Community participation is covered by [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md).
+- Report vulnerabilities through [`SECURITY.md`](./SECURITY.md).

@@ -60,6 +60,74 @@ describe("ToastProvider", () => {
     });
   });
 
+  it("keeps stored history in sync when a toast is updated", async () => {
+    render(
+      <ToastProvider
+        scope="history-sync"
+        history={{ enabled: true, storage: "memory", limit: 12 }}
+        headless
+        portalTarget={false}
+      >
+        <ToastHistoryPanel
+          title="Recent notifications"
+          emptyMessage="Nothing stored yet."
+        />
+      </ToastProvider>,
+    );
+
+    const historyToast = createToastScope("history-sync");
+    let toastId = "";
+
+    await act(async () => {
+      toastId = historyToast.loading({
+        title: "Saving profile",
+        description: "Waiting for the API to finish.",
+      });
+    });
+
+    expect(await screen.findByText("Saving profile")).toBeInTheDocument();
+
+    await act(async () => {
+      historyToast.update(toastId, {
+        title: "Profile saved",
+        description: "Your latest settings are live.",
+        intent: "success",
+        loading: false,
+        persistent: false,
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("Profile saved")).toBeInTheDocument();
+      expect(screen.queryByText("Saving profile")).not.toBeInTheDocument();
+    });
+  });
+
+  it("allows temporary visible overflow during bursts when configured", async () => {
+    render(
+      <ToastProvider
+        scope="burst-latency"
+        portalTarget={false}
+        maxVisible={3}
+        burstMaxVisible={10}
+        burstWindow={1000}
+        maxCollapsed={12}
+      >
+        <div>Burst test</div>
+      </ToastProvider>,
+    );
+
+    const burstToast = createToastScope("burst-latency");
+
+    await act(async () => {
+      for (const index of Array.from({ length: 10 }, (_, value) => value + 1)) {
+        burstToast.show(`Burst toast ${index}`);
+      }
+    });
+
+    expect(screen.getAllByText(/Burst toast \d+/)).toHaveLength(10);
+  });
+
   it("keeps the default toast singleton connected after route changes", async () => {
     window.history.replaceState({}, "", "/alpha");
     vi.resetModules();

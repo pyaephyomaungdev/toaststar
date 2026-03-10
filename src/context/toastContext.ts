@@ -1,4 +1,12 @@
 import { createContext } from "react";
-import type { ToastContextValue } from "../types";
+import type {
+  ToastActionContextValue,
+  ToastHistoryContextValue,
+  ToastStateContextValue,
+} from "../types";
 
-export const ToastContext = createContext<ToastContextValue | null>(null);
+export const ToastActionsContext =
+  createContext<ToastActionContextValue | null>(null);
+export const ToastStateContext = createContext<ToastStateContextValue | null>(null);
+export const ToastHistoryContext =
+  createContext<ToastHistoryContextValue | null>(null);

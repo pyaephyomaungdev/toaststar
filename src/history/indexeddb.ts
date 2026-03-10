@@ -6,10 +6,29 @@ interface StoredToastHistoryItem extends ToastHistoryItem {
   namespace: string;
 }
 
-const DATABASE_VERSION = 2;
+const DATABASE_VERSION = 3;
 const STORE_NAME = "history";
 const INDEX_NAMESPACE = "namespace";
 const INDEX_NAMESPACE_CREATED_AT = "namespaceCreatedAt";
+export const STORED_HISTORY_KEY_PATH: [string, string] = ["namespace", "id"];
+
+export function getStoredHistoryKey(
+  namespace: string,
+  id: string,
+): [string, string] {
+  return [namespace, id];
+}
+
+function hasCompositeStoreKeyPath(
+  keyPath: string | string[] | null,
+): keyPath is typeof STORED_HISTORY_KEY_PATH {
+  return (
+    Array.isArray(keyPath) &&
+    keyPath.length === 2 &&
+    keyPath[0] === STORED_HISTORY_KEY_PATH[0] &&
+    keyPath[1] === STORED_HISTORY_KEY_PATH[1]
+  );
+}
 
 function isIndexedDbAvailable(): boolean {
   return typeof indexedDB !== "undefined" && typeof IDBKeyRange !== "undefined";
@@ -26,13 +45,29 @@ function openDatabase(databaseName: string): Promise<IDBDatabase | null> {
     request.onupgradeneeded = () => {
       const database = request.result;
       const transaction = request.transaction;
+      let store: IDBObjectStore;
 
-      const store = database.objectStoreNames.contains(STORE_NAME)
-        ? transaction?.objectStore(STORE_NAME)
-        : database.createObjectStore(STORE_NAME, { keyPath: "id" });
+      if (database.objectStoreNames.contains(STORE_NAME)) {
+        const existingStore = transaction?.objectStore(STORE_NAME);
 
-      if (!store) {
-        return;
+        if (!existingStore) {
+          return;
+        }
+
+        if (!hasCompositeStoreKeyPath(existingStore.keyPath)) {
+          // History is a cache, so it is safe to rebuild the store when the
+          // primary key changes to preserve namespace isolation.
+          database.deleteObjectStore(STORE_NAME);
+          store = database.createObjectStore(STORE_NAME, {
+            keyPath: STORED_HISTORY_KEY_PATH,
+          });
+        } else {
+          store = existingStore;
+        }
+      } else {
+        store = database.createObjectStore(STORE_NAME, {
+          keyPath: STORED_HISTORY_KEY_PATH,
+        });
       }
 
       if (!store.indexNames.contains(INDEX_NAMESPACE)) {
@@ -98,8 +133,11 @@ function readRowsByNamespace(
   });
 }
 
-function deleteRowsById(database: IDBDatabase, ids: string[]): Promise<void> {
-  if (ids.length === 0) {
+function deleteRowsByKey(
+  database: IDBDatabase,
+  rows: StoredToastHistoryItem[],
+): Promise<void> {
+  if (rows.length === 0) {
     return Promise.resolve();
   }
 
@@ -107,8 +145,8 @@ function deleteRowsById(database: IDBDatabase, ids: string[]): Promise<void> {
     const transaction = database.transaction(STORE_NAME, "readwrite");
     const store = transaction.objectStore(STORE_NAME);
 
-    for (const id of ids) {
-      store.delete(id);
+    for (const row of rows) {
+      store.delete(getStoredHistoryKey(row.namespace, row.id));
     }
 
     transaction.oncomplete = () => {
@@ -126,9 +164,9 @@ async function pruneHistory(
   options: NormalizedToastHistoryOptions,
 ): Promise<void> {
   const rows = await readRowsByNamespace(database, options.namespace);
-  const rowsToDelete = rows.slice(options.limit).map((row) => row.id);
+  const rowsToDelete = rows.slice(options.limit);
 
-  await deleteRowsById(database, rowsToDelete);
+  await deleteRowsByKey(database, rowsToDelete);
 }
 
 export const indexedDbHistoryAdapter: ToastHistoryAdapter = {
@@ -187,10 +225,7 @@ export const indexedDbHistoryAdapter: ToastHistoryAdapter = {
 
     try {
       const rows = await readRowsByNamespace(database, options.namespace);
-      await deleteRowsById(
-        database,
-        rows.map((row) => row.id),
-      );
+      await deleteRowsByKey(database, rows);
     } finally {
       database.close();
     }

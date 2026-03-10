@@ -1,6 +1,7 @@
 {
   "name": "toaststar",
-  "version": "0.1.0",
+  "version": "0.1.1",
+  "homepage": "https://toaststar.pages.dev",
   "description": "Cinematic React toast notifications with center-launch animations, stacked cards, and optional IndexedDB history.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -38,14 +39,6 @@
     "stacked-notifications",
     "indexeddb"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/pyaephyomaungdev/toaststar.git"
-  },
-  "homepage": "https://github.com/pyaephyomaungdev/toaststar#readme",
-  "bugs": {
-    "url": "https://github.com/pyaephyomaungdev/toaststar/issues"
-  },
   "author": "Pyae Phyo Maung",
   "license": "MIT",
   "peerDependencies": {

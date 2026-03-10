@@ -108,6 +108,53 @@ export function toastToHistoryItem(toastRecord: ToastRecord): ToastHistoryItem {
   };
 }
 
+function shallowEqualObject(
+  left: Record<string, unknown> | undefined,
+  right: Record<string, unknown> | undefined,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+
+  if (!left || !right) {
+    return false;
+  }
+
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  for (const key of leftKeys) {
+    if (!Object.is(left[key], right[key])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export function areHistoryItemsEqual(
+  left: ToastHistoryItem,
+  right: ToastHistoryItem,
+): boolean {
+  return (
+    left.id === right.id &&
+    left.title === right.title &&
+    left.description === right.description &&
+    left.theme === right.theme &&
+    left.intent === right.intent &&
+    left.createdAt === right.createdAt &&
+    shallowEqualObject(
+      left.appearance as Record<string, unknown> | undefined,
+      right.appearance as Record<string, unknown> | undefined,
+    ) &&
+    shallowEqualObject(left.metadata, right.metadata)
+  );
+}
+
 export function mergeHistoryItems(
   currentItems: ToastHistoryItem[],
   incomingItems: ToastHistoryItem[],

@@ -27,3 +27,4 @@ This runs:
 - Keep public API changes backward-compatible unless the change is intentionally breaking.
 - Add or update tests for queueing, dedupe, scoped controllers, and history behavior when you touch runtime logic.
 - Prefer small focused pull requests with a short summary of user-visible behavior changes.
+- By participating in this project, you agree to follow the Code of Conduct.

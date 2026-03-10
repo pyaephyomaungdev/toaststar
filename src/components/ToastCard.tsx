@@ -14,10 +14,15 @@ import type {
   ToastRecord,
 } from "../types";
 import { DefaultToastIcon } from "./DefaultToastIcon";
-import { CENTER_SCALE, SWIPE_DISMISS_DISTANCE } from "../provider/constants";
 import {
-  type ProgressVisual,
+  CENTER_SCALE,
+  DEFAULT_PROGRESS_TICK,
+  SWIPE_DISMISS_DISTANCE,
+} from "../provider/constants";
+import {
+  getToastProgress,
   measureToastHeight,
+  type TimerEntry,
 } from "../provider/utils";
 
 export const ToastCard = memo(function ToastCard(props: {
@@ -29,7 +34,8 @@ export const ToastCard = memo(function ToastCard(props: {
   expanded: boolean;
   stackCount: number;
   interactive: boolean;
-  progress: ProgressVisual;
+  defaultShowProgress: boolean;
+  timer: TimerEntry | undefined;
   swipeToDismiss: boolean;
   onDismiss: (id: string, reason?: ToastCloseReason) => void;
   onAction: (id: string) => void;
@@ -49,7 +55,8 @@ export const ToastCard = memo(function ToastCard(props: {
     expanded,
     stackCount,
     interactive,
-    progress,
+    defaultShowProgress,
+    timer,
     swipeToDismiss,
     onDismiss,
     onAction,
@@ -69,6 +76,7 @@ export const ToastCard = memo(function ToastCard(props: {
     dragging: false,
   });
   const [dragOffset, setDragOffset] = useState(0);
+  const [progressNow, setProgressNow] = useState(() => Date.now());
 
   useEffect(() => {
     const node = ref.current;
@@ -114,6 +122,32 @@ export const ToastCard = memo(function ToastCard(props: {
       toastRecord.intent,
       toastRecord.theme,
     ],
+  );
+  const shouldTickProgress = Boolean(
+    (toastRecord.showProgress ?? defaultShowProgress) &&
+      !toastRecord.loading &&
+      typeof toastRecord.progress !== "number" &&
+      !toastRecord.persistent &&
+      timer?.autoCloseDuration,
+  );
+
+  useEffect(() => {
+    if (!shouldTickProgress) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setProgressNow(Date.now());
+    }, DEFAULT_PROGRESS_TICK);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [shouldTickProgress]);
+
+  const progress = useMemo(
+    () => getToastProgress(toastRecord, timer, progressNow, defaultShowProgress),
+    [defaultShowProgress, progressNow, timer, toastRecord],
   );
 
   const transformScale =
