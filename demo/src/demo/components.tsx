@@ -147,12 +147,16 @@ export function BuilderChip(props: BuilderChipProps) {
 
 export function BuilderToggle(props: BuilderToggleProps) {
   const { label, checked, onChange, hideLabel = false, disabled = false } = props;
+  const containerClassName = hideLabel
+    ? "inline-flex shrink-0 items-center"
+    : "flex items-center justify-between gap-4 text-[0.96rem] text-[#25304a] sm:text-[1.02rem]";
 
   return (
-    <label className="flex items-center justify-between gap-4 text-[0.96rem] text-[#25304a] sm:text-[1.02rem]">
+    <label className={containerClassName}>
       {hideLabel ? null : <span>{label}</span>}
       <button
         type="button"
+        aria-label={label}
         aria-pressed={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
@@ -160,9 +164,9 @@ export function BuilderToggle(props: BuilderToggleProps) {
           } ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
       >
         <span
-          className={`absolute h-6 w-6 rounded-full shadow-[0_4px_10px_rgba(17,24,18,0.12)] transition-transform duration-200 ${checked
-            ? "translate-x-[29px] bg-[#fff6ee]"
-            : "translate-x-[3px] bg-white"
+          className={`absolute left-[3px] top-1/2 h-6 w-6 -translate-y-1/2 transform-gpu rounded-full shadow-[0_4px_10px_rgba(17,24,18,0.12)] transition-transform duration-200 ease-out will-change-transform ${checked
+            ? "translate-x-[26px] bg-[#fff6ee]"
+            : "translate-x-0 bg-white"
             }`}
         />
       </button>
@@ -176,7 +180,7 @@ export function BuilderToggleCard(props: BuilderToggleCardProps) {
   return (
     <div className="rounded-[20px] border border-[#ebe4da] bg-[#fbf8f3] px-3.5 py-3.5 sm:rounded-[24px] sm:px-4 sm:py-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="min-w-0 sm:pr-2">
+        <div className="min-w-0 sm:flex-1 sm:pr-2">
           <div className="text-[0.95rem] font-semibold text-[#2c2a26] sm:text-[1rem]">
             {label}
           </div>
@@ -184,7 +188,7 @@ export function BuilderToggleCard(props: BuilderToggleCardProps) {
             {description}
           </p>
         </div>
-        <div className="flex justify-end sm:block">
+        <div className="flex justify-end sm:shrink-0">
           <BuilderToggle
             label={label}
             checked={checked}

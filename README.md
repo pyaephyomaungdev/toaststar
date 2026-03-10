@@ -247,7 +247,7 @@ Use `dedupeBehavior="ignore" | "update" | "reset-duration"` on the provider to d
 
 Use `overflowStrategy="queue" | "drop-oldest" | "drop-newest"` with `maxVisible` and `queueLimit` to control bursts.
 
-Set `burstMaxVisible` higher than `maxVisible` to let rapid bursts temporarily overshoot the steady-state cap before normal queueing resumes. Tune the burst detector with `burstWindow` in milliseconds.
+Finite `maxVisible` values get a small burst headroom by default so rapid clicks can momentarily overshoot the steady-state cap before normal queueing resumes. Set `burstMaxVisible` to tune or disable that headroom, and adjust `burstWindow` in milliseconds to control how long a burst stays active.
 
 ## Feature toggles
 

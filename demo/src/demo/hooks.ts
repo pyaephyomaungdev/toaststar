@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 
 export function useHaptic() {
-  const [pulsing, setPulsing] = useState(false);
-
   const trigger = useCallback(() => {
-    setPulsing(false);
-    requestAnimationFrame(() => setPulsing(true));
-    window.setTimeout(() => setPulsing(false), 200);
+    if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+      navigator.vibrate(10);
+    }
   }, []);
 
-  return { pulsing, trigger };
+  return { trigger };
 }
 
 export function useHeroIntro() {

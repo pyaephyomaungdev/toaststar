@@ -10,6 +10,7 @@ import type {
 
 export const DEMO_SCOPE = "toaststar-demo";
 export const toast = createToastScope(DEMO_SCOPE);
+let heroSequenceTimeouts: number[] = [];
 
 export function SparkIcon() {
   return (
@@ -184,6 +185,12 @@ export function DemoCustomToastBody(props: CustomBodyProps) {
 }
 
 export function launchHeroSequence(haptic: () => void) {
+  for (const timeoutId of heroSequenceTimeouts) {
+    window.clearTimeout(timeoutId);
+  }
+  heroSequenceTimeouts = [];
+  toast.clear();
+
   const queue = [
     {
       title: "Workspace loaded",
@@ -205,14 +212,26 @@ export function launchHeroSequence(haptic: () => void) {
     },
   ];
 
-  for (const [index, item] of queue.entries()) {
-    window.setTimeout(() => {
+  const [firstToast, ...delayedToasts] = queue;
+
+  if (firstToast) {
+    haptic();
+    toast.show({
+      ...firstToast,
+      duration: 4600,
+    });
+  }
+
+  for (const [index, item] of delayedToasts.entries()) {
+    const timeoutId = window.setTimeout(() => {
+      heroSequenceTimeouts = heroSequenceTimeouts.filter((id) => id !== timeoutId);
       haptic();
       toast.show({
         ...item,
         duration: 4600,
       });
-    }, index * 150);
+    }, (index + 1) * 150);
+    heroSequenceTimeouts.push(timeoutId);
   }
 }
 

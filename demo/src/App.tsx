@@ -11,10 +11,6 @@ import type {
   ThemeOption,
 } from "./demo/types";
 
-const HAPTIC_PULSE_STYLE: React.CSSProperties = {
-  animation: "toaststarPulse 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-};
-
 export default function App() {
   const [radius, setRadius] = useState(24);
   const [blur, setBlur] = useState(16);
@@ -58,7 +54,7 @@ export default function App() {
     [blur, radius, theme],
   );
 
-  const { pulsing, trigger: hapticTrigger } = useHaptic();
+  const { trigger: hapticTrigger } = useHaptic();
 
   return (
     <ToastProvider
@@ -87,10 +83,7 @@ export default function App() {
           : undefined
       }
     >
-      <div
-        className="relative z-[1] w-full"
-        style={pulsing ? HAPTIC_PULSE_STYLE : undefined}
-      >
+      <div className="relative z-[1] w-full">
         <ReferenceLandingPage
           radius={radius}
           blur={blur}
