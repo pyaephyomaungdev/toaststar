@@ -1,0 +1,16 @@
+export const CENTER_SCALE = 1.08;
+export const CENTER_STAGE_DELAY = 40;
+export const DEFAULT_HEIGHT = 108;
+export const DEFAULT_DURATION = 4200;
+export const DEFAULT_GAP = 14;
+export const DEFAULT_EDGE_OFFSET = 28;
+export const DEFAULT_EXPANDED_OFFSET = 18;
+export const DEFAULT_EXIT_DURATION = 220;
+export const DEFAULT_INTRO_DURATION = 420;
+export const DEFAULT_MAX_COLLAPSED = 4;
+export const DEFAULT_Z_INDEX = 2147483000;
+export const DEFAULT_MAX_VISIBLE = Number.POSITIVE_INFINITY;
+export const DEFAULT_QUEUE_LIMIT = Number.POSITIVE_INFINITY;
+export const DEFAULT_PROGRESS_TICK = 120;
+export const EXPAND_HOVER_DISTANCE = 6;
+export const SWIPE_DISMISS_DISTANCE = 72;

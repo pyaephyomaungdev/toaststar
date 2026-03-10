@@ -1,0 +1,67 @@
+{
+  "name": "toaststar",
+  "version": "0.1.0",
+  "description": "Cinematic React toast notifications with center-launch animations, stacked cards, and optional IndexedDB history.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "demo": "npm --prefix demo run dev",
+    "demo:build": "npm --prefix demo run build",
+    "demo:install": "npm --prefix demo install",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "ci": "npm run typecheck && npm run test && npm run build && npm run demo:build",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "react",
+    "toast",
+    "notification",
+    "stacked-notifications",
+    "indexeddb"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pyaephyomaungdev/toaststar.git"
+  },
+  "homepage": "https://github.com/pyaephyomaungdev/toaststar#readme",
+  "bugs": {
+    "url": "https://github.com/pyaephyomaungdev/toaststar/issues"
+  },
+  "author": "Pyae Phyo Maung",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": ">=18",
+    "react-dom": ">=18"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "jsdom": "^28.1.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.2",
+    "vitest": "^4.0.18"
+  }
+}
