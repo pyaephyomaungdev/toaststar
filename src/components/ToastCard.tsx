@@ -32,13 +32,16 @@ export const ToastCard = memo(function ToastCard(props: {
   opacity: number;
   zIndex: number;
   expanded: boolean;
+  collapsedIndex: number;
   stackCount: number;
+  stackDepth: number;
   interactive: boolean;
   defaultShowProgress: boolean;
   timer: TimerEntry | undefined;
   swipeToDismiss: boolean;
   onDismiss: (id: string, reason?: ToastCloseReason) => void;
   onAction: (id: string) => void;
+  onPress: (id: string) => void;
   onMeasure: (id: string, height: number) => void;
   onPointerEnter: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -53,13 +56,16 @@ export const ToastCard = memo(function ToastCard(props: {
     opacity,
     zIndex,
     expanded,
+    collapsedIndex,
     stackCount,
+    stackDepth,
     interactive,
     defaultShowProgress,
     timer,
     swipeToDismiss,
     onDismiss,
     onAction,
+    onPress,
     onMeasure,
     onPointerEnter,
     onPointerMove,
@@ -70,10 +76,12 @@ export const ToastCard = memo(function ToastCard(props: {
   const ref = useRef<HTMLDivElement | null>(null);
   const dragStateRef = useRef({
     pointerId: -1,
+    pointerType: "",
     startX: 0,
     startY: 0,
     offset: 0,
     dragging: false,
+    moved: false,
   });
   const [dragOffset, setDragOffset] = useState(0);
   const [progressNow, setProgressNow] = useState(() => Date.now());
@@ -125,10 +133,10 @@ export const ToastCard = memo(function ToastCard(props: {
   );
   const shouldTickProgress = Boolean(
     (toastRecord.showProgress ?? defaultShowProgress) &&
-      !toastRecord.loading &&
-      typeof toastRecord.progress !== "number" &&
-      !toastRecord.persistent &&
-      timer?.autoCloseDuration,
+    !toastRecord.loading &&
+    typeof toastRecord.progress !== "number" &&
+    !toastRecord.persistent &&
+    timer?.autoCloseDuration,
   );
 
   useEffect(() => {
@@ -177,22 +185,24 @@ export const ToastCard = memo(function ToastCard(props: {
 
       if (
         !interactive ||
-        !swipeToDismiss ||
-        (event.pointerType !== "touch" && event.pointerType !== "pen")
+        (event.pointerType !== "touch" && event.pointerType !== "pen") ||
+        isInteractiveElementTarget(event.target)
       ) {
         return;
       }
 
       dragStateRef.current = {
         pointerId: event.pointerId,
+        pointerType: event.pointerType,
         startX: event.clientX,
         startY: event.clientY,
         offset: 0,
         dragging: true,
+        moved: false,
       };
-      ref.current?.setPointerCapture(event.pointerId);
+      ref.current?.setPointerCapture?.(event.pointerId);
     },
-    [interactive, onPointerDown, swipeToDismiss],
+    [interactive, onPointerDown],
   );
 
   const handlePointerMove = useCallback(
@@ -208,6 +218,14 @@ export const ToastCard = memo(function ToastCard(props: {
       const deltaX = event.clientX - dragState.startX;
       const deltaY = event.clientY - dragState.startY;
 
+      if (Math.hypot(deltaX, deltaY) >= 8) {
+        dragState.moved = true;
+      }
+
+      if (!swipeToDismiss) {
+        return;
+      }
+
       if (Math.abs(deltaX) < 6 || Math.abs(deltaX) < Math.abs(deltaY)) {
         return;
       }
@@ -215,7 +233,7 @@ export const ToastCard = memo(function ToastCard(props: {
       dragState.offset = deltaX;
       setDragOffset(deltaX);
     },
-    [onPointerMove],
+    [onPointerMove, swipeToDismiss],
   );
 
   const releaseDrag = useCallback(
@@ -226,18 +244,38 @@ export const ToastCard = memo(function ToastCard(props: {
         return;
       }
 
+      const shouldDismiss =
+        !cancelled &&
+        swipeToDismiss &&
+        Math.abs(dragState.offset) >= SWIPE_DISMISS_DISTANCE;
+      const shouldPress =
+        !cancelled &&
+        !dragState.moved &&
+        dragState.pointerType !== "mouse" &&
+        Math.abs(dragState.offset) < 6;
+
       dragState.dragging = false;
       dragState.pointerId = -1;
+      dragState.pointerType = "";
+      dragState.moved = false;
       ref.current?.releasePointerCapture?.(event.pointerId);
 
-      if (!cancelled && Math.abs(dragState.offset) >= SWIPE_DISMISS_DISTANCE) {
+      if (shouldDismiss) {
+        const dismissOffset = Math.sign(dragState.offset || 1) * getSwipeExitOffset();
+        dragState.offset = dismissOffset;
+        setDragOffset(dismissOffset);
         onDismiss(toastRecord.id, "swipe");
+        return;
       }
 
       dragState.offset = 0;
       setDragOffset(0);
+
+      if (shouldPress) {
+        onPress(toastRecord.id);
+      }
     },
-    [onDismiss, toastRecord.id],
+    [onDismiss, onPress, swipeToDismiss, toastRecord.id],
   );
 
   return (
@@ -247,6 +285,9 @@ export const ToastCard = memo(function ToastCard(props: {
       data-toaststar-card="true"
       data-phase={toastRecord.phase}
       data-expanded={expanded ? "true" : "false"}
+      data-collapsed-index={String(collapsedIndex)}
+      data-has-stack={stackCount > 0 ? "true" : "false"}
+      data-stack-depth={String(stackDepth)}
       data-compact={
         hasCustomBody || toastRecord.description || toastRecord.action
           ? "false"
@@ -316,9 +357,6 @@ export const ToastCard = memo(function ToastCard(props: {
         )}
       </div>
       <div className="toaststar-chrome">
-        {!expanded && stackCount > 0 ? (
-          <span className="toaststar-count">+{stackCount}</span>
-        ) : null}
         {showCloseButton ? (
           <button
             type="button"
@@ -339,8 +377,8 @@ export const ToastCard = memo(function ToastCard(props: {
             style={
               progress.mode === "determinate"
                 ? {
-                    transform: `scaleX(${progress.value})`,
-                  }
+                  transform: `scaleX(${progress.value})`,
+                }
                 : undefined
             }
           />
@@ -351,3 +389,19 @@ export const ToastCard = memo(function ToastCard(props: {
 });
 
 ToastCard.displayName = "ToastCard";
+
+function isInteractiveElementTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement
+    ? Boolean(
+      target.closest("button, a, input, select, textarea, [role='button']"),
+    )
+    : false;
+}
+
+function getSwipeExitOffset(): number {
+  if (typeof window === "undefined" || !Number.isFinite(window.innerWidth)) {
+    return 420;
+  }
+
+  return Math.max(window.innerWidth, SWIPE_DISMISS_DISTANCE * 2);
+}

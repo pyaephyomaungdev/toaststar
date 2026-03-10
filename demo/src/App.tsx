@@ -1,7 +1,7 @@
 import { startTransition, useDeferredValue, useMemo, useState } from "react";
 import { ToastProvider } from "toaststar";
 import { useHaptic } from "./demo/hooks";
-import { DEMO_SCOPE } from "./demo/runtime";
+import { DEMO_SCOPE, WELCOME_PREVIEW_SCOPE } from "./demo/runtime";
 import { ReferenceLandingPage } from "./demo/referenceLandingPage";
 import type {
   DedupeOption,
@@ -57,104 +57,127 @@ export default function App() {
   const { trigger: hapticTrigger } = useHaptic();
 
   return (
-    <ToastProvider
-      scope={DEMO_SCOPE}
-      position={providerPosition}
-      defaultTheme={theme}
-      introDuration={400}
-      appearance={providerAppearance}
-      showProgress={showProgress}
-      maxVisible={limitVisible ? maxVisible : undefined}
-      queueLimit={limitVisible ? queueLimit : undefined}
-      overflowStrategy={overflowStrategy}
-      dedupeBehavior={dedupeBehavior}
-      expandOnHover={expandOnHover}
-      pauseOnHover={pauseOnHover}
-      swipeToDismiss={swipeToDismiss}
-      headless={!builtInLayer}
-      portalTarget={portalEnabled ? null : false}
-      history={
-        deferredHistoryEnabled
-          ? {
-              enabled: true,
-              storage: "indexeddb",
-              limit: 30,
+    <>
+      <ToastProvider
+        scope={WELCOME_PREVIEW_SCOPE}
+        position={providerPosition}
+        defaultTheme={theme}
+        introDuration={0}
+        appearance={providerAppearance}
+        showProgress={showProgress}
+        maxCollapsed={3}
+        burstMaxVisible={3}
+        maxVisible={limitVisible ? maxVisible : undefined}
+        queueLimit={limitVisible ? queueLimit : undefined}
+        overflowStrategy={overflowStrategy}
+        dedupeBehavior={dedupeBehavior}
+        expandOnHover={expandOnHover}
+        pauseOnHover={pauseOnHover}
+        swipeToDismiss={swipeToDismiss}
+        headless={!builtInLayer}
+        portalTarget={portalEnabled ? null : false}
+      />
+      <ToastProvider
+        scope={DEMO_SCOPE}
+        position={providerPosition}
+        defaultTheme={theme}
+        introDuration={400}
+        appearance={providerAppearance}
+        showProgress={showProgress}
+        maxCollapsed={3}
+        burstMaxVisible={3}
+        maxVisible={limitVisible ? maxVisible : undefined}
+        queueLimit={limitVisible ? queueLimit : undefined}
+        overflowStrategy={overflowStrategy}
+        dedupeBehavior={dedupeBehavior}
+        expandOnHover={expandOnHover}
+        pauseOnHover={pauseOnHover}
+        swipeToDismiss={swipeToDismiss}
+        headless={!builtInLayer}
+        portalTarget={portalEnabled ? null : false}
+        history={
+          deferredHistoryEnabled
+            ? {
+                enabled: true,
+                storage: "indexeddb",
+                limit: 30,
+              }
+            : undefined
+        }
+      >
+        <div className="relative z-[1] w-full">
+          <ReferenceLandingPage
+            radius={radius}
+            blur={blur}
+            hapticTrigger={hapticTrigger}
+            historyEnabled={historyEnabled}
+            theme={theme}
+            position={position}
+            showProgress={showProgress}
+            swipeToDismiss={swipeToDismiss}
+            expandOnHover={expandOnHover}
+            pauseOnHover={pauseOnHover}
+            builtInLayer={builtInLayer}
+            portalEnabled={portalEnabled}
+            limitVisible={limitVisible}
+            maxVisible={maxVisible}
+            queueLimit={queueLimit}
+            overflowStrategy={overflowStrategy}
+            dedupeBehavior={dedupeBehavior}
+            providerAppearance={providerAppearance}
+            onRadiusChange={(next) => {
+              startTransition(() => {
+                setRadius(next);
+              });
+            }}
+            onBlurChange={(next) => {
+              startTransition(() => {
+                setBlur(next);
+              });
+            }}
+            onHistoryChange={(next) => {
+              startTransition(() => {
+                setHistoryEnabled(next);
+              });
+            }}
+            onThemeChange={(next) => startTransition(() => setTheme(next))}
+            onPositionChange={(next) => startTransition(() => setPosition(next))}
+            onShowProgressChange={(next) =>
+              startTransition(() => setShowProgress(next))
             }
-          : undefined
-      }
-    >
-      <div className="relative z-[1] w-full">
-        <ReferenceLandingPage
-          radius={radius}
-          blur={blur}
-          hapticTrigger={hapticTrigger}
-          historyEnabled={historyEnabled}
-          theme={theme}
-          position={position}
-          showProgress={showProgress}
-          swipeToDismiss={swipeToDismiss}
-          expandOnHover={expandOnHover}
-          pauseOnHover={pauseOnHover}
-          builtInLayer={builtInLayer}
-          portalEnabled={portalEnabled}
-          limitVisible={limitVisible}
-          maxVisible={maxVisible}
-          queueLimit={queueLimit}
-          overflowStrategy={overflowStrategy}
-          dedupeBehavior={dedupeBehavior}
-          providerAppearance={providerAppearance}
-          onRadiusChange={(next) => {
-            startTransition(() => {
-              setRadius(next);
-            });
-          }}
-          onBlurChange={(next) => {
-            startTransition(() => {
-              setBlur(next);
-            });
-          }}
-          onHistoryChange={(next) => {
-            startTransition(() => {
-              setHistoryEnabled(next);
-            });
-          }}
-          onThemeChange={(next) => startTransition(() => setTheme(next))}
-          onPositionChange={(next) => startTransition(() => setPosition(next))}
-          onShowProgressChange={(next) =>
-            startTransition(() => setShowProgress(next))
-          }
-          onSwipeToDismissChange={(next) =>
-            startTransition(() => setSwipeToDismiss(next))
-          }
-          onExpandOnHoverChange={(next) =>
-            startTransition(() => setExpandOnHover(next))
-          }
-          onPauseOnHoverChange={(next) =>
-            startTransition(() => setPauseOnHover(next))
-          }
-          onBuiltInLayerChange={(next) =>
-            startTransition(() => setBuiltInLayer(next))
-          }
-          onPortalEnabledChange={(next) =>
-            startTransition(() => setPortalEnabled(next))
-          }
-          onLimitVisibleChange={(next) =>
-            startTransition(() => setLimitVisible(next))
-          }
-          onMaxVisibleChange={(next) =>
-            startTransition(() => setMaxVisible(next))
-          }
-          onQueueLimitChange={(next) =>
-            startTransition(() => setQueueLimit(next))
-          }
-          onOverflowStrategyChange={(next) =>
-            startTransition(() => setOverflowStrategy(next))
-          }
-          onDedupeBehaviorChange={(next) =>
-            startTransition(() => setDedupeBehavior(next))
-          }
-        />
-      </div>
-    </ToastProvider>
+            onSwipeToDismissChange={(next) =>
+              startTransition(() => setSwipeToDismiss(next))
+            }
+            onExpandOnHoverChange={(next) =>
+              startTransition(() => setExpandOnHover(next))
+            }
+            onPauseOnHoverChange={(next) =>
+              startTransition(() => setPauseOnHover(next))
+            }
+            onBuiltInLayerChange={(next) =>
+              startTransition(() => setBuiltInLayer(next))
+            }
+            onPortalEnabledChange={(next) =>
+              startTransition(() => setPortalEnabled(next))
+            }
+            onLimitVisibleChange={(next) =>
+              startTransition(() => setLimitVisible(next))
+            }
+            onMaxVisibleChange={(next) =>
+              startTransition(() => setMaxVisible(next))
+            }
+            onQueueLimitChange={(next) =>
+              startTransition(() => setQueueLimit(next))
+            }
+            onOverflowStrategyChange={(next) =>
+              startTransition(() => setOverflowStrategy(next))
+            }
+            onDedupeBehaviorChange={(next) =>
+              startTransition(() => setDedupeBehavior(next))
+            }
+          />
+        </div>
+      </ToastProvider>
+    </>
   );
 }

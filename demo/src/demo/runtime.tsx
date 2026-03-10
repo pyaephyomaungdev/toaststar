@@ -9,7 +9,9 @@ import type {
 } from "./types";
 
 export const DEMO_SCOPE = "toaststar-demo";
+export const WELCOME_PREVIEW_SCOPE = "toaststar-demo-welcome";
 export const toast = createToastScope(DEMO_SCOPE);
+const welcomePreviewToast = createToastScope(WELCOME_PREVIEW_SCOPE);
 let heroSequenceTimeouts: number[] = [];
 
 export function SparkIcon() {
@@ -189,6 +191,7 @@ export function launchHeroSequence(haptic: () => void) {
     window.clearTimeout(timeoutId);
   }
   heroSequenceTimeouts = [];
+  welcomePreviewToast.clear();
   toast.clear();
 
   const queue = [
@@ -216,7 +219,7 @@ export function launchHeroSequence(haptic: () => void) {
 
   if (firstToast) {
     haptic();
-    toast.show({
+    welcomePreviewToast.show({
       ...firstToast,
       duration: 4600,
     });
@@ -226,7 +229,7 @@ export function launchHeroSequence(haptic: () => void) {
     const timeoutId = window.setTimeout(() => {
       heroSequenceTimeouts = heroSequenceTimeouts.filter((id) => id !== timeoutId);
       haptic();
-      toast.show({
+      welcomePreviewToast.show({
         ...item,
         duration: 4600,
       });
@@ -488,6 +491,26 @@ export const HISTORY_SNIPPET = `<ToastProvider
 />;
 
 // swap storage to "memory" for session-only history`;
+
+export const HISTORY_SYNC_SNIPPET = `import { useToastHistory } from "toaststar";
+
+function NotificationSync() {
+  const { exportHistory, importHistory, postHistory, fetchHistory } =
+    useToastHistory();
+
+  async function backupToApi() {
+    await postHistory("/api/toast-history", { method: "PUT" });
+  }
+
+  async function restoreFromApi() {
+    await fetchHistory("/api/toast-history", undefined, "replace");
+  }
+
+  async function reuseCurrentSnapshot() {
+    const snapshot = exportHistory();
+    await importHistory(snapshot, "merge");
+  }
+}`;
 
 export const SCOPED_RUNTIME_SNIPPET = `import { ToastProvider, createToastScope } from "toaststar";
 

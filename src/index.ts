@@ -1,4 +1,16 @@
 export { createToastController, createToastScope, toast } from "./controller";
+export {
+  clearHistoryItems,
+  createToastHistorySnapshot,
+  listHistory,
+  mergeStoredHistoryItems,
+  normalizeHistoryOptions,
+  normalizeToastHistoryItem,
+  normalizeToastHistoryItems,
+  parseToastHistoryPayload,
+  replaceStoredHistoryItems,
+  saveHistoryItem,
+} from "./history";
 export { ToastHistoryPanel } from "./ToastHistoryPanel";
 export { ToastProvider } from "./ToastProvider";
 export {
@@ -17,9 +29,13 @@ export type {
   ToastContextValue,
   ToastDedupeBehavior,
   ToastHistoryContextValue,
+  ToastHistoryImportBehavior,
+  ToastHistoryImportSource,
   ToastHistoryItem,
   ToastHistoryOptions,
   ToastHistoryPanelProps,
+  ToastHistoryPostInit,
+  ToastHistorySnapshot,
   ToastHistoryStorage,
   ToastInput,
   ToastIntent,

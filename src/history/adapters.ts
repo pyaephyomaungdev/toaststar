@@ -2,6 +2,7 @@ import type { ToastHistoryItem } from "../types";
 import { indexedDbHistoryAdapter } from "./indexeddb";
 import { memoryHistoryAdapter, type ToastHistoryAdapter } from "./memory";
 import type { NormalizedToastHistoryOptions } from "./normalizeHistoryOptions";
+import { normalizeToastHistoryItems } from "./snapshot";
 
 function resolvePrimaryAdapter(
   options: NormalizedToastHistoryOptions,
@@ -56,4 +57,48 @@ export async function clearHistoryItems(
   }
 
   await runWithFallback(options, (adapter) => adapter.clear(options), undefined);
+}
+
+export async function replaceStoredHistoryItems(
+  options: NormalizedToastHistoryOptions,
+  items: ToastHistoryItem[],
+): Promise<ToastHistoryItem[]> {
+  if (!options.enabled) {
+    return normalizeToastHistoryItems(items, options.limit);
+  }
+
+  const normalizedItems = normalizeToastHistoryItems(items, options.limit);
+
+  await runWithFallback(
+    options,
+    (adapter) => adapter.replace(options, normalizedItems),
+    undefined,
+  );
+
+  return normalizedItems;
+}
+
+export async function mergeStoredHistoryItems(
+  options: NormalizedToastHistoryOptions,
+  items: ToastHistoryItem[],
+): Promise<ToastHistoryItem[]> {
+  const incomingItems = normalizeToastHistoryItems(items, options.limit);
+
+  if (!options.enabled) {
+    return incomingItems;
+  }
+
+  const currentItems = await listHistory(options);
+  const nextItems = normalizeToastHistoryItems(
+    [...incomingItems, ...currentItems],
+    options.limit,
+  );
+
+  await runWithFallback(
+    options,
+    (adapter) => adapter.replace(options, nextItems),
+    undefined,
+  );
+
+  return nextItems;
 }

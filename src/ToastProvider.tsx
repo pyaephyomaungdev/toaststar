@@ -21,8 +21,12 @@ import {
 } from "./context/toastContext";
 import {
   clearHistoryItems,
+  createToastHistorySnapshot,
   listHistory,
+  mergeStoredHistoryItems,
   normalizeHistoryOptions,
+  parseToastHistoryPayload,
+  replaceStoredHistoryItems,
   saveHistoryItem,
 } from "./history";
 import {
@@ -62,8 +66,11 @@ import type {
   ToastCloseReason,
   ToastContentInput,
   ToastController,
+  ToastHistoryImportBehavior,
+  ToastHistoryImportSource,
   ToastHistoryContextValue,
   ToastHistoryItem,
+  ToastHistoryPostInit,
   ToastInput,
   ToastProviderProps,
   ToastRecord,
@@ -465,6 +472,32 @@ export function ToastProvider({
     }
   }, [resumeToast]);
 
+  const expandToastStack = useCallback(() => {
+    clearCollapseTimer();
+    hoverIntentRef.current.blocked = false;
+
+    if (!expandedRef.current && pauseOnHover) {
+      pauseAllToasts();
+    }
+
+    setExpanded(true);
+  }, [clearCollapseTimer, pauseAllToasts, pauseOnHover]);
+
+  const collapseToastStack = useCallback(() => {
+    clearCollapseTimer();
+    hoverIntentRef.current.blocked = false;
+
+    if (!expandedRef.current) {
+      return;
+    }
+
+    setExpanded(false);
+
+    if (pauseOnHover) {
+      resumeAllToasts();
+    }
+  }, [clearCollapseTimer, pauseOnHover, resumeAllToasts]);
+
   const mergeToastRecord = useCallback(
     (
       toastRecord: ToastRecord,
@@ -706,7 +739,16 @@ export function ToastProvider({
 
       commitToasts((currentToasts) => [
         nextToast,
-        ...currentToasts.filter((toastRecord) => toastRecord.id !== nextToast.id),
+        ...currentToasts
+          .filter((toastRecord) => toastRecord.id !== nextToast.id)
+          .map<ToastRecord>((toastRecord) =>
+            toastRecord.phase === "closing" || toastRecord.phase === "stack"
+              ? toastRecord
+              : {
+                  ...toastRecord,
+                  phase: "stack",
+                },
+          ),
       ]);
       notifyOpened(nextToast);
 
@@ -715,6 +757,21 @@ export function ToastProvider({
       const timers = timersRef.current.get(nextToast.id) ?? {};
       clearManagedTimeout(timers.dock);
       clearManagedTimeout(timers.stack);
+      for (const toastRecord of toastsRef.current) {
+        if (toastRecord.id === nextToast.id || toastRecord.phase === "closing") {
+          continue;
+        }
+
+        const siblingTimers = timersRef.current.get(toastRecord.id);
+        clearManagedTimeout(siblingTimers?.dock);
+        clearManagedTimeout(siblingTimers?.stack);
+
+        if (siblingTimers) {
+          siblingTimers.dock = undefined;
+          siblingTimers.stack = undefined;
+          timersRef.current.set(toastRecord.id, siblingTimers);
+        }
+      }
       timers.dock = window.setTimeout(() => {
         commitToasts((currentToasts) =>
           currentToasts.map((toastRecord) =>
@@ -981,6 +1038,48 @@ export function ToastProvider({
     [expandOnHover, pauseOnHover, queueCollapse, resumeAllToasts],
   );
 
+  const handleToastPress = useCallback(
+    (id: string) => {
+      const openToasts = getOpenToasts(toastsRef.current);
+
+      if (!expandedRef.current) {
+        if (openToasts.length <= 1) {
+          return;
+        }
+
+        expandToastStack();
+        return;
+      }
+
+      const topToast = openToasts[0];
+
+      if (topToast && topToast.id === resolveToastId(id)) {
+        collapseToastStack();
+      }
+    },
+    [collapseToastStack, expandToastStack, resolveToastId],
+  );
+
+  useEffect(() => {
+    if (!expanded || typeof document === "undefined") {
+      return;
+    }
+
+    const handleDocumentPointerDown = (event: PointerEvent) => {
+      if (isToastCardTarget(event.target)) {
+        return;
+      }
+
+      collapseToastStack();
+    };
+
+    document.addEventListener("pointerdown", handleDocumentPointerDown, true);
+
+    return () => {
+      document.removeEventListener("pointerdown", handleDocumentPointerDown, true);
+    };
+  }, [collapseToastStack, expanded]);
+
   const clearHistory = useCallback(async () => {
     if (!historyOptions.enabled) {
       setHistoryItems([]);
@@ -994,6 +1093,122 @@ export function ToastProvider({
       swallowHistoryError(error, "clear");
     }
   }, [historyOptions]);
+
+  const reloadHistory = useCallback(async () => {
+    if (!historyOptions.enabled) {
+      setHistoryItems([]);
+      return [];
+    }
+
+    try {
+      const items = await listHistory(historyOptions);
+      startTransition(() => {
+        setHistoryItems(items);
+      });
+      return items;
+    } catch (error) {
+      swallowHistoryError(error, "load");
+      return historyItems;
+    }
+  }, [historyItems, historyOptions]);
+
+  const importHistory = useCallback(
+    async (
+      source: ToastHistoryImportSource,
+      behavior: ToastHistoryImportBehavior = "merge",
+    ) => {
+      const items = parseToastHistoryPayload(source, historyOptions.limit);
+
+      if (!historyOptions.enabled) {
+        return items;
+      }
+
+      try {
+        const nextItems =
+          behavior === "replace"
+            ? await replaceStoredHistoryItems(historyOptions, items)
+            : await mergeStoredHistoryItems(historyOptions, items);
+
+        startTransition(() => {
+          setHistoryItems((currentHistory) =>
+            behavior === "replace"
+              ? nextItems
+              : mergeHistoryItems(currentHistory, nextItems, historyOptions.limit),
+          );
+        });
+
+        return nextItems;
+      } catch (error) {
+        swallowHistoryError(error, "save");
+        return historyItems;
+      }
+    },
+    [historyItems, historyOptions],
+  );
+
+  const exportHistory = useCallback(
+    () => createToastHistorySnapshot(historyItems, historyOptions, controllerScope),
+    [controllerScope, historyItems, historyOptions],
+  );
+
+  const postHistory = useCallback(
+    async (input: RequestInfo | URL, init?: ToastHistoryPostInit) => {
+      if (typeof fetch !== "function") {
+        throw new Error("toaststar history post requires fetch support");
+      }
+
+      const headers = new Headers(init?.headers);
+
+      if (!headers.has("accept")) {
+        headers.set("accept", "application/json");
+      }
+
+      if (!headers.has("content-type")) {
+        headers.set("content-type", "application/json");
+      }
+
+      return fetch(input, {
+        ...init,
+        method: init?.method ?? "POST",
+        headers,
+        body: JSON.stringify(exportHistory()),
+      });
+    },
+    [exportHistory],
+  );
+
+  const fetchHistory = useCallback(
+    async (
+      input: RequestInfo | URL,
+      init?: RequestInit,
+      behavior: ToastHistoryImportBehavior = "replace",
+    ) => {
+      if (typeof fetch !== "function") {
+        throw new Error("toaststar history fetch requires fetch support");
+      }
+
+      const headers = new Headers(init?.headers);
+
+      if (!headers.has("accept")) {
+        headers.set("accept", "application/json");
+      }
+
+      const response = await fetch(input, {
+        ...init,
+        headers,
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `toaststar history fetch failed: ${response.status} ${response.statusText}`.trim(),
+        );
+      }
+
+      const payload = await response.json();
+      return importHistory(payload, behavior);
+    },
+    [importHistory],
+  );
 
   const visibleToasts = useMemo(
     () => (expanded ? toasts : toasts.slice(0, Math.max(1, maxCollapsed))),
@@ -1064,11 +1279,25 @@ export function ToastProvider({
     () => ({
       history: historyItems,
       clearHistory,
+      exportHistory,
+      reloadHistory,
+      importHistory,
+      postHistory,
+      fetchHistory,
     }),
-    [clearHistory, historyItems],
+    [
+      clearHistory,
+      exportHistory,
+      fetchHistory,
+      historyItems,
+      importHistory,
+      postHistory,
+      reloadHistory,
+    ],
   );
 
   let runningOffset = expanded ? expandedOffset : 0;
+  const collapsedStackDepth = Math.min(Math.max(maxCollapsed - 1, 0), 2);
   const layer = headless ? null : (
     <div
       className="toaststar-layer"
@@ -1078,7 +1307,8 @@ export function ToastProvider({
     >
       {visibleToasts.map((toastRecord, index) => {
         const height = measuredHeights[toastRecord.id] ?? 108;
-        const collapsedOffset = Math.min(index, maxCollapsed - 1) * 14;
+        const collapsedIndex = Math.min(index, maxCollapsed - 1);
+        const collapsedOffset = collapsedIndex * 18;
         const offset = expanded ? runningOffset : collapsedOffset;
         const top = formatViewportTop(
           position,
@@ -1089,17 +1319,18 @@ export function ToastProvider({
         );
         const scale = expanded
           ? 1
-          : Math.max(0.82, 0.96 - Math.min(index, maxCollapsed - 1) * 0.05);
+          : Math.max(0.84, 1 - collapsedIndex * 0.055);
         const opacity = expanded
           ? 1
           : index < maxCollapsed
-            ? Math.max(0, 1 - Math.min(index, maxCollapsed - 1) * 0.16)
+            ? Math.max(0, 1 - collapsedIndex * 0.12)
             : 0;
         const interactive =
           (expanded ? true : index === 0) &&
           toastRecord.phase !== "center" &&
           toastRecord.phase !== "docking";
         const stackCount = !expanded && index === 0 ? collapsedCount : 0;
+        const stackDepth = Math.min(stackCount, collapsedStackDepth);
         const nextCard = (
           <ToastCard
             key={toastRecord.id}
@@ -1113,13 +1344,16 @@ export function ToastProvider({
             opacity={opacity}
             zIndex={zIndex - index}
             expanded={expanded}
+            collapsedIndex={collapsedIndex}
             stackCount={stackCount}
+            stackDepth={stackDepth}
             interactive={interactive}
             defaultShowProgress={showProgress}
             timer={timersRef.current.get(toastRecord.id)}
             swipeToDismiss={swipeToDismiss}
             onDismiss={dismissToast}
             onAction={handleAction}
+            onPress={handleToastPress}
             onMeasure={handleMeasure}
             onPointerEnter={handlePointerEnter}
             onPointerMove={handlePointerMove}

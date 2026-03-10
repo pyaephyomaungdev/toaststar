@@ -11,6 +11,7 @@ export type ToastThemeName =
 export type ToastOverflowStrategy = "queue" | "drop-oldest" | "drop-newest";
 export type ToastDedupeBehavior = "ignore" | "update" | "reset-duration";
 export type ToastHistoryStorage = "indexeddb" | "memory";
+export type ToastHistoryImportBehavior = "merge" | "replace";
 export type ToastCloseReason =
   | "dismiss"
   | "auto"
@@ -126,6 +127,27 @@ export interface ToastHistoryOptions {
   storage?: ToastHistoryStorage;
 }
 
+export interface ToastHistorySnapshot {
+  version: 1;
+  exportedAt: number;
+  scope?: string;
+  namespace: string;
+  databaseName: string;
+  storage: ToastHistoryStorage;
+  items: ToastHistoryItem[];
+}
+
+export type ToastHistoryImportSource =
+  | ToastHistoryItem[]
+  | ToastHistorySnapshot
+  | { items?: ToastHistoryItem[] }
+  | { history?: ToastHistoryItem[] };
+
+export interface ToastHistoryPostInit
+  extends Omit<RequestInit, "body" | "method"> {
+  method?: "POST" | "PUT" | "PATCH";
+}
+
 export interface ToastProviderProps {
   children?: ReactNode;
   scope?: string;
@@ -184,6 +206,21 @@ export interface ToastStateContextValue {
 export interface ToastHistoryContextValue {
   history: ToastHistoryItem[];
   clearHistory: () => Promise<void>;
+  exportHistory: () => ToastHistorySnapshot;
+  reloadHistory: () => Promise<ToastHistoryItem[]>;
+  importHistory: (
+    source: ToastHistoryImportSource,
+    behavior?: ToastHistoryImportBehavior,
+  ) => Promise<ToastHistoryItem[]>;
+  postHistory: (
+    input: RequestInfo | URL,
+    init?: ToastHistoryPostInit,
+  ) => Promise<Response>;
+  fetchHistory: (
+    input: RequestInfo | URL,
+    init?: RequestInit,
+    behavior?: ToastHistoryImportBehavior,
+  ) => Promise<ToastHistoryItem[]>;
 }
 
 export interface ToastContextValue

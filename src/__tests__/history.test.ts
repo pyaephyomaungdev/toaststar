@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   clearHistoryItems,
+  createToastHistorySnapshot,
   listHistory,
+  mergeStoredHistoryItems,
   normalizeHistoryOptions,
+  parseToastHistoryPayload,
+  replaceStoredHistoryItems,
   saveHistoryItem,
 } from "../history";
 import {
@@ -96,5 +100,87 @@ describe("history adapters", () => {
         toastToHistoryItem(updatedToast),
       ),
     ).toBe(true);
+  });
+
+  it("creates reusable history snapshots and parses API payloads", () => {
+    const options = normalizeHistoryOptions(
+      { enabled: true, storage: "memory", limit: 5 },
+      "snapshot-app",
+    );
+    const snapshot = createToastHistorySnapshot(
+      [
+        {
+          id: "toast-1",
+          title: "Saved",
+          description: "Profile updated.",
+          theme: "glass",
+          intent: "success",
+          createdAt: 10,
+          metadata: { source: "local" },
+        },
+      ],
+      options,
+      "snapshot-app",
+    );
+
+    expect(snapshot.namespace).toBe(options.namespace);
+    expect(snapshot.databaseName).toBe(options.databaseName);
+    expect(snapshot.scope).toBe("snapshot-app");
+    expect(parseToastHistoryPayload(snapshot)).toEqual(snapshot.items);
+    expect(
+      parseToastHistoryPayload({
+        history: [
+          snapshot.items[0],
+          { id: "bad-row", title: "", createdAt: "nope" },
+        ],
+      }),
+    ).toEqual(snapshot.items);
+  });
+
+  it("merges and replaces stored history snapshots", async () => {
+    const options = normalizeHistoryOptions(
+      { enabled: true, storage: "memory", limit: 5 },
+      "merge-replace",
+    );
+
+    await clearHistoryItems(options);
+    await replaceStoredHistoryItems(options, [
+      {
+        id: "toast-1",
+        title: "First item",
+        theme: "glass",
+        intent: "success",
+        createdAt: 1,
+      },
+    ]);
+
+    await mergeStoredHistoryItems(options, [
+      {
+        id: "toast-2",
+        title: "Second item",
+        theme: "midnight",
+        intent: "info",
+        createdAt: 2,
+      },
+    ]);
+
+    await expect(listHistory(options)).resolves.toEqual([
+      expect.objectContaining({ id: "toast-2", title: "Second item" }),
+      expect.objectContaining({ id: "toast-1", title: "First item" }),
+    ]);
+
+    await replaceStoredHistoryItems(options, [
+      {
+        id: "toast-3",
+        title: "Replacement",
+        theme: "forest",
+        intent: "warning",
+        createdAt: 3,
+      },
+    ]);
+
+    await expect(listHistory(options)).resolves.toEqual([
+      expect.objectContaining({ id: "toast-3", title: "Replacement" }),
+    ]);
   });
 });

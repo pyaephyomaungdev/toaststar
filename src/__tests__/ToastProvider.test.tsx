@@ -1,8 +1,29 @@
+import { useEffect } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ToastHistoryPanel } from "../ToastHistoryPanel";
 import { ToastProvider } from "../ToastProvider";
 import { createToastScope } from "../controller";
+import { useToastHistory } from "../hooks/useToast";
+import type { ToastHistoryContextValue } from "../types";
+
+function HistoryHarness(props: {
+  onReady: (value: ToastHistoryContextValue) => void;
+}) {
+  const historyApi = useToastHistory();
+
+  useEffect(() => {
+    props.onReady(historyApi);
+  }, [historyApi, props.onReady]);
+
+  return (
+    <div>
+      {historyApi.history.map((item) => (
+        <span key={item.id}>{item.title}</span>
+      ))}
+    </div>
+  );
+}
 
 describe("ToastProvider", () => {
   it("renders isolated layers for different scopes", async () => {
@@ -103,6 +124,99 @@ describe("ToastProvider", () => {
     });
   });
 
+  it("exports, posts, fetches, and rehydrates history snapshots", async () => {
+    const handleReady = vi.fn<(value: ToastHistoryContextValue) => void>();
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi.fn();
+    globalThis.fetch = fetchMock;
+
+    try {
+      render(
+        <ToastProvider
+          scope="history-api"
+          history={{ enabled: true, storage: "memory", limit: 12 }}
+          headless
+          portalTarget={false}
+        >
+          <HistoryHarness onReady={handleReady} />
+        </ToastProvider>,
+      );
+
+      const getHistoryApi = () => {
+        const latestCall = handleReady.mock.lastCall?.[0];
+
+        expect(latestCall).toBeTruthy();
+        return latestCall as ToastHistoryContextValue;
+      };
+
+      await act(async () => {
+        createToastScope("history-api").show("Local history item");
+      });
+
+      await waitFor(() => {
+        expect(getHistoryApi().history).toHaveLength(1);
+      });
+
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: "Created",
+        json: async () => ({}),
+      } as Response);
+
+      await act(async () => {
+        await getHistoryApi().postHistory("/api/history", { method: "PUT" });
+      });
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/history",
+        expect.objectContaining({
+          method: "PUT",
+        }),
+      );
+      expect(
+        JSON.parse(
+          (fetchMock.mock.calls[0]?.[1] as RequestInit & { body?: string }).body ?? "{}",
+        ),
+      ).toEqual(
+        expect.objectContaining({
+          items: [
+            expect.objectContaining({ title: "Local history item" }),
+          ],
+        }),
+      );
+
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: "OK",
+        json: async () => ({
+          history: [
+            {
+              id: "remote-toast",
+              title: "Remote restored item",
+              description: "Loaded from API.",
+              theme: "ocean",
+              intent: "info",
+              createdAt: 99,
+            },
+          ],
+        }),
+      } as Response);
+
+      await act(async () => {
+        await getHistoryApi().fetchHistory("/api/history", undefined, "replace");
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText("Remote restored item")).toBeInTheDocument();
+        expect(screen.queryByText("Local history item")).not.toBeInTheDocument();
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("allows temporary visible overflow during bursts when configured", async () => {
     render(
       <ToastProvider
@@ -154,5 +268,173 @@ describe("ToastProvider", () => {
     });
 
     expect(await screen.findByText("Beta route toast")).toBeInTheDocument();
+  });
+
+  it("renders layered cards immediately during the landing-page welcome burst", async () => {
+    vi.useFakeTimers();
+
+    render(
+      <ToastProvider scope="welcome-burst" portalTarget={false} maxCollapsed={4}>
+        <div>Welcome burst</div>
+      </ToastProvider>,
+    );
+
+    const burstToast = createToastScope("welcome-burst");
+
+    await act(async () => {
+      burstToast.show({
+        title: "Workspace loaded",
+        description: "Your configurations are synced.",
+      });
+      vi.advanceTimersByTime(150);
+      burstToast.show({
+        title: "New update",
+        description: "Hover the stack to fan out.",
+      });
+      vi.advanceTimersByTime(150);
+      burstToast.show({
+        title: "History pulse",
+        description: "Persisted history stays available after the stack closes.",
+      });
+    });
+
+    expect(screen.getByText("History pulse")).toBeInTheDocument();
+    expect(screen.getByText("New update")).toBeInTheDocument();
+    expect(screen.getByText("Workspace loaded")).toBeInTheDocument();
+    expect(
+      screen.getByText("Persisted history stays available after the stack closes."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Hover the stack to fan out.")).toBeInTheDocument();
+    expect(screen.getByText("Your configurations are synced.")).toBeInTheDocument();
+
+    const layeredCards = document.querySelectorAll("[data-toaststar-card='true']");
+
+    expect(layeredCards).toHaveLength(3);
+    expect(layeredCards[0]).toHaveAttribute("data-collapsed-index", "0");
+    expect(layeredCards[1]).toHaveAttribute("data-collapsed-index", "1");
+    expect(layeredCards[2]).toHaveAttribute("data-collapsed-index", "2");
+    expect(layeredCards[1]).toHaveAttribute("data-phase", "stack");
+    expect(layeredCards[2]).toHaveAttribute("data-phase", "stack");
+    expect(layeredCards[1]).toHaveAttribute("data-compact", "false");
+    expect(layeredCards[2]).toHaveAttribute("data-compact", "false");
+  });
+
+  it("expands a collapsed stack when the top toast is tapped on touch devices", async () => {
+    vi.useFakeTimers();
+
+    render(
+      <ToastProvider
+        scope="mobile-fanout"
+        portalTarget={false}
+        maxCollapsed={3}
+        introDuration={0}
+      >
+        <div>Touch stack</div>
+      </ToastProvider>,
+    );
+
+    const touchToast = createToastScope("mobile-fanout");
+
+    await act(async () => {
+      touchToast.show("First toast");
+      touchToast.show("Second toast");
+      touchToast.show("Third toast");
+      vi.advanceTimersByTime(60);
+    });
+
+    expect(screen.getByText("Third toast")).toBeInTheDocument();
+    expect(screen.getByText("Second toast")).toBeInTheDocument();
+    expect(screen.getByText("First toast")).toBeInTheDocument();
+
+    const collapsedCards = document.querySelectorAll("[data-toaststar-card='true']");
+    expect(collapsedCards).toHaveLength(3);
+    expect(collapsedCards[1]).toHaveAttribute("data-phase", "stack");
+    expect(collapsedCards[2]).toHaveAttribute("data-phase", "stack");
+
+    const topToast = screen
+      .getByText("Third toast")
+      .closest("[data-toaststar-card='true']");
+
+    expect(topToast).toHaveAttribute("data-expanded", "false");
+
+    await act(async () => {
+      fireEvent.pointerDown(topToast as HTMLElement, {
+        pointerId: 7,
+        pointerType: "touch",
+        clientX: 180,
+        clientY: 44,
+      });
+      fireEvent.pointerUp(topToast as HTMLElement, {
+        pointerId: 7,
+        pointerType: "touch",
+        clientX: 180,
+        clientY: 44,
+      });
+    });
+
+    expect(
+      screen
+        .getByText("Third toast")
+        .closest("[data-toaststar-card='true']"),
+    ).toHaveAttribute("data-expanded", "true");
+    expect(
+      document.querySelectorAll("[data-toaststar-card='true']")[1],
+    ).toHaveAttribute("data-expanded", "true");
+  });
+
+  it("keeps swipe-dismissed toasts offset instead of snapping them back first", async () => {
+    vi.useFakeTimers();
+
+    render(
+      <ToastProvider scope="swipe-dismiss" portalTarget={false} introDuration={0}>
+        <div>Swipe test</div>
+      </ToastProvider>,
+    );
+
+    const swipeToast = createToastScope("swipe-dismiss");
+
+    await act(async () => {
+      swipeToast.show("Swipe me");
+      vi.advanceTimersByTime(60);
+    });
+
+    await act(async () => {
+      const toastCard = screen
+        .getByText("Swipe me")
+        .closest("[data-toaststar-card='true']") as HTMLElement;
+
+      fireEvent.pointerDown(toastCard, {
+        pointerId: 11,
+        pointerType: "touch",
+        clientX: 160,
+        clientY: 42,
+      });
+      fireEvent.pointerMove(toastCard, {
+        pointerId: 11,
+        pointerType: "touch",
+        clientX: 280,
+        clientY: 46,
+      });
+      fireEvent.pointerUp(toastCard, {
+        pointerId: 11,
+        pointerType: "touch",
+        clientX: 280,
+        clientY: 46,
+      });
+    });
+
+    const closingToast = screen
+      .getByText("Swipe me")
+      .closest("[data-toaststar-card='true']") as HTMLElement;
+
+    expect(closingToast).toHaveAttribute("data-phase", "closing");
+    expect(closingToast).toHaveAttribute("data-swiping", "true");
+    expect(closingToast.style.transform).not.toContain("calc(-50% + 0px)");
+
+    await act(async () => {
+      vi.advanceTimersByTime(260);
+    });
+
+    expect(screen.queryByText("Swipe me")).not.toBeInTheDocument();
   });
 });

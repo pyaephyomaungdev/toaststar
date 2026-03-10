@@ -7,6 +7,10 @@ export interface ToastHistoryAdapter {
     options: NormalizedToastHistoryOptions,
     item: ToastHistoryItem,
   ) => Promise<void>;
+  replace: (
+    options: NormalizedToastHistoryOptions,
+    items: ToastHistoryItem[],
+  ) => Promise<void>;
   clear: (options: NormalizedToastHistoryOptions) => Promise<void>;
 }
 
@@ -31,5 +35,8 @@ export const memoryHistoryAdapter: ToastHistoryAdapter = {
   },
   async clear(options) {
     memoryStore.delete(getStorageKey(options));
+  },
+  async replace(options, items) {
+    memoryStore.set(getStorageKey(options), items.slice(0, options.limit));
   },
 };

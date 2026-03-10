@@ -1,5 +1,9 @@
 import { useMemo, useRef, useState } from "react";
-import { ToastHistoryPanel } from "toaststar";
+import {
+  ToastHistoryPanel,
+  useToastHistory,
+  type ToastHistorySnapshot,
+} from "toaststar";
 import {
   BuilderChip,
   BuilderToggle,
@@ -8,7 +12,7 @@ import {
   HeroDropIcon,
   HeroIntroOverlay,
 } from "./components";
-import { useHeroIntro } from "./hooks";
+import { DEMO_HISTORY_API_PATH, useDemoHistoryApiBridge, useHeroIntro } from "./hooks";
 import {
   BellIcon,
   BUILDER_EXAMPLE_GROUPS,
@@ -20,6 +24,7 @@ import {
   DOC_QUICKSTART_STEPS,
   HEADLESS_SNIPPET,
   HISTORY_SNIPPET,
+  HISTORY_SYNC_SNIPPET,
   InboxIcon,
   INSTALL_SNIPPET,
   LANDING_THEME_SURFACE_LABELS,
@@ -47,6 +52,26 @@ import type {
 } from "./types";
 
 const GITHUB_REPO_URL = "https://github.com/pyaephyomaungdev/toaststar";
+const HISTORY_SYNC_STATUS_STYLES = {
+  neutral: "border-[#e5e1d9] bg-[#f8f5f0] text-[#7c7268]",
+  success: "border-[#d3e7da] bg-[#eff8f1] text-[#26734a]",
+  error: "border-[#efd8dc] bg-[#fff4f5] text-[#b44654]",
+} as const;
+
+function formatHistoryCount(count: number) {
+  return `${count} item${count === 1 ? "" : "s"}`;
+}
+
+function formatHistoryTime(value: number | undefined) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "Not saved yet";
+  }
+
+  return new Date(value).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export function ReferenceLandingPage(props: ReferenceLandingPageProps) {
   const {
@@ -102,8 +127,24 @@ export function ReferenceLandingPage(props: ReferenceLandingPageProps) {
   const [builderUseDedupeKey, setBuilderUseDedupeKey] = useState(false);
   const [builderDuration, setBuilderDuration] = useState(4000);
   const [selectedDocExampleId, setSelectedDocExampleId] = useState("success");
+  const [capturedHistorySnapshot, setCapturedHistorySnapshot] =
+    useState<ToastHistorySnapshot | null>(null);
+  const [historySyncStatus, setHistorySyncStatus] = useState<{
+    tone: "neutral" | "success" | "error";
+    title: string;
+    detail: string;
+  }>({
+    tone: "neutral",
+    title: "Mock API ready",
+    detail:
+      "Post the current history to the demo endpoint, then pull it back with replace or merge.",
+  });
   const heroTargetRef = useRef<HTMLSpanElement>(null);
   const { contentVisible, introActive, targetVisible } = useHeroIntro();
+  const { history: liveHistory, exportHistory, importHistory, postHistory, fetchHistory } =
+    useToastHistory();
+  const { remoteSnapshot, clearRemoteSnapshot, refreshRemoteSnapshot } =
+    useDemoHistoryApiBridge();
   const themeSurfaceLabel = LANDING_THEME_SURFACE_LABELS[theme];
   const runDocDemo = (action: () => void) => {
     hapticTrigger();
@@ -112,6 +153,147 @@ export function ReferenceLandingPage(props: ReferenceLandingPageProps) {
   const selectedDocExample =
     DOC_LIVE_TOASTS.find((item) => item.id === selectedDocExampleId) ??
     DOC_LIVE_TOASTS[0];
+  const historyActionButtonClass =
+    "inline-flex min-h-[44px] items-center justify-center rounded-full border px-4 text-[0.88rem] font-semibold transition-all duration-200";
+  const getHistoryActionButtonClass = (disabled: boolean, emphasis = false) =>
+    `${historyActionButtonClass} ${disabled
+      ? "cursor-not-allowed border-[#e5e2df] bg-[#f3f1ed] text-[#9d958c]"
+      : emphasis
+        ? "border-[#cad6f7] bg-[#eef3ff] text-[#2947ae] hover:-translate-y-px hover:border-[#bcccf4] hover:bg-white"
+        : "border-[#d8deed] bg-white text-[#25304a] hover:-translate-y-px hover:border-[#cfd7f2] hover:bg-white"
+    }`;
+
+  async function handleCaptureHistorySnapshot() {
+    if (!historyEnabled) {
+      setHistorySyncStatus({
+        tone: "neutral",
+        title: "Enable history first",
+        detail:
+          "Turn on the History panel toggle before capturing reusable snapshots.",
+      });
+      return;
+    }
+
+    const snapshot = exportHistory();
+    setCapturedHistorySnapshot(snapshot);
+    setHistorySyncStatus({
+      tone: "success",
+      title: "Snapshot captured",
+      detail: `Saved ${formatHistoryCount(snapshot.items.length)} in a reusable local snapshot.`,
+    });
+  }
+
+  async function handleRestoreCapturedSnapshot() {
+    if (!historyEnabled) {
+      setHistorySyncStatus({
+        tone: "neutral",
+        title: "History is disabled",
+        detail:
+          "Turn the History panel toggle back on before restoring a captured snapshot.",
+      });
+      return;
+    }
+
+    if (!capturedHistorySnapshot) {
+      setHistorySyncStatus({
+        tone: "neutral",
+        title: "Capture a snapshot first",
+        detail:
+          "Use Snapshot current after firing a few toasts, then rehydrate it here.",
+      });
+      return;
+    }
+
+    const nextItems = await importHistory(capturedHistorySnapshot, "replace");
+    setHistorySyncStatus({
+      tone: "success",
+      title: "Snapshot restored",
+      detail: `Rehydrated ${formatHistoryCount(nextItems.length)} back into the active history store.`,
+    });
+  }
+
+  async function handlePostHistoryToMockApi() {
+    if (!historyEnabled) {
+      setHistorySyncStatus({
+        tone: "neutral",
+        title: "History is disabled",
+        detail:
+          "Enable history in the playground first so the demo has something to persist.",
+      });
+      return;
+    }
+
+    try {
+      const response = await postHistory(DEMO_HISTORY_API_PATH, { method: "PUT" });
+
+      if (!response.ok) {
+        throw new Error(`Mock API returned ${response.status}.`);
+      }
+
+      const snapshot = refreshRemoteSnapshot();
+      setHistorySyncStatus({
+        tone: "success",
+        title: "Posted to mock API",
+        detail: snapshot
+          ? `Stored ${formatHistoryCount(snapshot.items.length)} at ${DEMO_HISTORY_API_PATH}.`
+          : "The mock API accepted the request but did not return a stored snapshot.",
+      });
+    } catch (error) {
+      setHistorySyncStatus({
+        tone: "error",
+        title: "Post failed",
+        detail:
+          error instanceof Error ? error.message : "The mock API request could not complete.",
+      });
+    }
+  }
+
+  async function handleFetchHistoryFromMockApi(mode: "merge" | "replace") {
+    if (!historyEnabled) {
+      setHistorySyncStatus({
+        tone: "neutral",
+        title: "History is disabled",
+        detail:
+          "Enable history first so fetched items can be written back into storage.",
+      });
+      return;
+    }
+
+    if (!remoteSnapshot) {
+      setHistorySyncStatus({
+        tone: "neutral",
+        title: "No mock API data yet",
+        detail:
+          "POST the current history first, then pull it back with replace or merge.",
+      });
+      return;
+    }
+
+    try {
+      const nextItems = await fetchHistory(DEMO_HISTORY_API_PATH, undefined, mode);
+      setHistorySyncStatus({
+        tone: "success",
+        title: mode === "replace" ? "Remote history replaced local state" : "Remote history merged",
+        detail: `${formatHistoryCount(nextItems.length)} now available after the ${mode} sync.`,
+      });
+    } catch (error) {
+      setHistorySyncStatus({
+        tone: "error",
+        title: "Fetch failed",
+        detail:
+          error instanceof Error ? error.message : "The mock API payload could not be restored.",
+      });
+    }
+  }
+
+  function handleClearMockApi() {
+    clearRemoteSnapshot();
+    setHistorySyncStatus({
+      tone: "neutral",
+      title: "Mock API cleared",
+      detail: "The demo endpoint is empty again. POST another snapshot whenever you are ready.",
+    });
+  }
 
   const builderCode = useMemo(() => {
     const lines = [`toast.show({`, `  title: ${JSON.stringify(builderTitle)},`];
@@ -1206,6 +1388,167 @@ export function ReferenceLandingPage(props: ReferenceLandingPageProps) {
                       current tab session.
                     </div>
                   )}
+                </div>
+              </div>
+
+              <div className="min-w-0 max-w-full rounded-[28px] border border-[#dfe3ef] bg-white/92 p-5 shadow-[0_18px_42px_rgba(41,55,103,0.07)] sm:rounded-[32px] sm:p-6">
+                <div className="text-[0.8rem] font-semibold uppercase tracking-[0.18em] text-[#9d8e80]">
+                  History sync lab
+                </div>
+                <h3 className="mt-2 text-[1.1rem] leading-[1.1] text-[#1f2642] font-bold sm:text-[1.24rem]">
+                  Reuse snapshots or round-trip them through a mock API
+                </h3>
+                <p className="mt-3 text-[0.98rem] leading-[1.65] text-[#756f67]">
+                  This demo intercepts requests to{" "}
+                  <code className="rounded bg-[#f3f1ec] px-2 py-0.5 font-mono text-[0.84rem] text-[#5e584f]">
+                    {DEMO_HISTORY_API_PATH}
+                  </code>{" "}
+                  and stores the payload in localStorage so you can test export,
+                  import, POST, and GET flows without wiring a backend first.
+                </p>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-[22px] border border-[#e4e3f0] bg-[#f8f8fc] px-4 py-4">
+                    <div className="text-[0.76rem] font-semibold uppercase tracking-[0.18em] text-[#92867b]">
+                      Local history
+                    </div>
+                    <div className="mt-2 text-[1rem] font-semibold text-[#27314f]">
+                      {historyEnabled ? formatHistoryCount(liveHistory.length) : "Disabled"}
+                    </div>
+                    <div className="mt-1 text-[0.84rem] leading-[1.55] text-[#7c7781]">
+                      {historyEnabled ? "Driven by the current provider state." : "Turn on the History panel toggle first."}
+                    </div>
+                  </div>
+                  <div className="rounded-[22px] border border-[#e4e3f0] bg-[#f8f8fc] px-4 py-4">
+                    <div className="text-[0.76rem] font-semibold uppercase tracking-[0.18em] text-[#92867b]">
+                      Captured snapshot
+                    </div>
+                    <div className="mt-2 text-[1rem] font-semibold text-[#27314f]">
+                      {capturedHistorySnapshot
+                        ? formatHistoryCount(capturedHistorySnapshot.items.length)
+                        : "None yet"}
+                    </div>
+                    <div className="mt-1 text-[0.84rem] leading-[1.55] text-[#7c7781]">
+                      {capturedHistorySnapshot
+                        ? `Saved at ${formatHistoryTime(capturedHistorySnapshot.exportedAt)}`
+                        : "Use Snapshot current to cache a reusable export."}
+                    </div>
+                  </div>
+                  <div className="rounded-[22px] border border-[#e4e3f0] bg-[#f8f8fc] px-4 py-4">
+                    <div className="text-[0.76rem] font-semibold uppercase tracking-[0.18em] text-[#92867b]">
+                      Mock API cache
+                    </div>
+                    <div className="mt-2 text-[1rem] font-semibold text-[#27314f]">
+                      {remoteSnapshot ? formatHistoryCount(remoteSnapshot.items.length) : "Empty"}
+                    </div>
+                    <div className="mt-1 text-[0.84rem] leading-[1.55] text-[#7c7781]">
+                      {remoteSnapshot
+                        ? `Updated at ${formatHistoryTime(remoteSnapshot.exportedAt)}`
+                        : "POST the current history to seed the endpoint."}
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  className={`mt-5 rounded-[24px] border px-4 py-4 ${HISTORY_SYNC_STATUS_STYLES[historySyncStatus.tone]}`}
+                >
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-[0.92rem] font-semibold">
+                      {historySyncStatus.title}
+                    </div>
+                    <span className="text-[0.76rem] font-semibold uppercase tracking-[0.18em]">
+                      {historySyncStatus.tone}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-[0.9rem] leading-[1.6]">
+                    {historySyncStatus.detail}
+                  </p>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    className={getHistoryActionButtonClass(!historyEnabled)}
+                    disabled={!historyEnabled}
+                    onClick={() => {
+                      hapticTrigger();
+                      void handleCaptureHistorySnapshot();
+                    }}
+                  >
+                    Snapshot current
+                  </button>
+                  <button
+                    type="button"
+                    className={getHistoryActionButtonClass(
+                      capturedHistorySnapshot === null || !historyEnabled,
+                    )}
+                    disabled={capturedHistorySnapshot === null || !historyEnabled}
+                    onClick={() => {
+                      hapticTrigger();
+                      void handleRestoreCapturedSnapshot();
+                    }}
+                  >
+                    Restore snapshot
+                  </button>
+                  <button
+                    type="button"
+                    className={getHistoryActionButtonClass(!historyEnabled, true)}
+                    disabled={!historyEnabled}
+                    onClick={() => {
+                      hapticTrigger();
+                      void handlePostHistoryToMockApi();
+                    }}
+                  >
+                    POST to mock API
+                  </button>
+                  <button
+                    type="button"
+                    className={getHistoryActionButtonClass(
+                      remoteSnapshot === null || !historyEnabled,
+                    )}
+                    disabled={remoteSnapshot === null || !historyEnabled}
+                    onClick={() => {
+                      hapticTrigger();
+                      void handleFetchHistoryFromMockApi("replace");
+                    }}
+                  >
+                    GET and replace
+                  </button>
+                  <button
+                    type="button"
+                    className={getHistoryActionButtonClass(
+                      remoteSnapshot === null || !historyEnabled,
+                    )}
+                    disabled={remoteSnapshot === null || !historyEnabled}
+                    onClick={() => {
+                      hapticTrigger();
+                      void handleFetchHistoryFromMockApi("merge");
+                    }}
+                  >
+                    GET and merge
+                  </button>
+                  <button
+                    type="button"
+                    className={getHistoryActionButtonClass(remoteSnapshot === null)}
+                    disabled={remoteSnapshot === null}
+                    onClick={() => {
+                      hapticTrigger();
+                      handleClearMockApi();
+                    }}
+                  >
+                    Clear mock API
+                  </button>
+                </div>
+
+                <div className="mt-4 min-w-0 max-w-full rounded-[24px] border border-[#eadfce] bg-white/92 p-4">
+                  <div className="text-[0.75rem] font-semibold uppercase tracking-[0.18em] text-[#9d8e80]">
+                    Sync code
+                  </div>
+                  <p className="mt-2 text-[0.92rem] leading-[1.6] text-[#756f67]">
+                    The controls above use the same public history hook methods
+                    shown here.
+                  </p>
+                  <CodeBlock code={HISTORY_SYNC_SNIPPET} />
                 </div>
               </div>
             </div>

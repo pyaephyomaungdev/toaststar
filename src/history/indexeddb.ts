@@ -159,6 +159,37 @@ function deleteRowsByKey(
   });
 }
 
+function putRows(
+  database: IDBDatabase,
+  options: NormalizedToastHistoryOptions,
+  items: ToastHistoryItem[],
+): Promise<void> {
+  if (items.length === 0) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction(STORE_NAME, "readwrite");
+    const store = transaction.objectStore(STORE_NAME);
+
+    for (const item of items) {
+      const payload: StoredToastHistoryItem = {
+        ...item,
+        namespace: options.namespace,
+      };
+      store.put(payload);
+    }
+
+    transaction.oncomplete = () => {
+      resolve();
+    };
+
+    transaction.onerror = () => {
+      reject(transaction.error);
+    };
+  });
+}
+
 async function pruneHistory(
   database: IDBDatabase,
   options: NormalizedToastHistoryOptions,
@@ -192,24 +223,7 @@ export const indexedDbHistoryAdapter: ToastHistoryAdapter = {
     }
 
     try {
-      await new Promise<void>((resolve, reject) => {
-        const transaction = database.transaction(STORE_NAME, "readwrite");
-        const store = transaction.objectStore(STORE_NAME);
-        const payload: StoredToastHistoryItem = {
-          ...item,
-          namespace: options.namespace,
-        };
-
-        store.put(payload);
-
-        transaction.oncomplete = () => {
-          resolve();
-        };
-
-        transaction.onerror = () => {
-          reject(transaction.error);
-        };
-      });
+      await putRows(database, options, [item]);
 
       await pruneHistory(database, options);
     } finally {
@@ -226,6 +240,21 @@ export const indexedDbHistoryAdapter: ToastHistoryAdapter = {
     try {
       const rows = await readRowsByNamespace(database, options.namespace);
       await deleteRowsByKey(database, rows);
+    } finally {
+      database.close();
+    }
+  },
+  async replace(options, items) {
+    const database = await openDatabase(options.databaseName);
+
+    if (!database) {
+      return;
+    }
+
+    try {
+      const rows = await readRowsByNamespace(database, options.namespace);
+      await deleteRowsByKey(database, rows);
+      await putRows(database, options, items.slice(0, options.limit));
     } finally {
       database.close();
     }

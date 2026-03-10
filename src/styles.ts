@@ -58,6 +58,27 @@ const TOASTSTAR_STYLES = `
   cursor: default;
 }
 
+.toaststar-toast[data-expanded="false"][data-has-stack="true"][data-collapsed-index="0"] {
+  box-shadow:
+    0 20px 42px -20px rgba(4, 8, 18, 0.22),
+    var(--toaststar-shadow);
+}
+
+.toaststar-toast[data-expanded="false"][data-collapsed-index="1"] {
+  box-shadow:
+    0 12px 0 -1px color-mix(in srgb, var(--toaststar-background) 84%, white 16%),
+    0 24px 44px -16px rgba(4, 8, 18, 0.28),
+    var(--toaststar-shadow);
+}
+
+.toaststar-toast[data-expanded="false"][data-collapsed-index="2"] {
+  box-shadow:
+    0 12px 0 -1px color-mix(in srgb, var(--toaststar-background) 86%, white 14%),
+    0 22px 0 -8px color-mix(in srgb, var(--toaststar-background) 76%, white 24%),
+    0 30px 52px -18px rgba(4, 8, 18, 0.32),
+    var(--toaststar-shadow);
+}
+
 .toaststar-toast[data-phase="center"],
 .toaststar-toast[data-phase="docking"] {
   box-shadow: 0 34px 90px rgba(3, 6, 15, 0.34);
@@ -239,22 +260,6 @@ const TOASTSTAR_STYLES = `
   flex: 0 0 28px;
 }
 
-.toaststar-count {
-  min-width: 28px;
-  height: 28px;
-  padding: 0 8px;
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--toaststar-background) 78%, black 22%);
-  border: var(--toaststar-border);
-  font-size: 0.78rem;
-  font-weight: 650;
-  line-height: 1;
-}
-
 .toaststar-progress {
   position: absolute;
   left: 12px;
@@ -379,6 +384,27 @@ const TOASTSTAR_STYLES = `
     padding: 14px 15px;
   }
 
+  .toaststar-toast[data-expanded="false"][data-has-stack="true"][data-collapsed-index="0"] {
+    box-shadow:
+      0 18px 34px -20px rgba(4, 8, 18, 0.2),
+      var(--toaststar-shadow);
+  }
+
+  .toaststar-toast[data-expanded="false"][data-collapsed-index="1"] {
+    box-shadow:
+      0 10px 0 -1px color-mix(in srgb, var(--toaststar-background) 84%, white 16%),
+      0 22px 38px -18px rgba(4, 8, 18, 0.26),
+      var(--toaststar-shadow);
+  }
+
+  .toaststar-toast[data-expanded="false"][data-collapsed-index="2"] {
+    box-shadow:
+      0 10px 0 -1px color-mix(in srgb, var(--toaststar-background) 86%, white 14%),
+      0 18px 0 -8px color-mix(in srgb, var(--toaststar-background) 76%, white 24%),
+      0 24px 42px -20px rgba(4, 8, 18, 0.28),
+      var(--toaststar-shadow);
+  }
+
   .toaststar-icon-slot {
     width: 28px;
     min-width: 28px;
@@ -407,7 +433,13 @@ export function useToaststarStyles(): void {
       return;
     }
 
-    if (document.getElementById(STYLE_ID)) {
+    const existingStyle = document.getElementById(STYLE_ID);
+
+    if (existingStyle instanceof HTMLStyleElement) {
+      if (existingStyle.textContent !== TOASTSTAR_STYLES) {
+        existingStyle.textContent = TOASTSTAR_STYLES;
+      }
+
       return;
     }
 

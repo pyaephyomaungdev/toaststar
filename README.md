@@ -228,6 +228,51 @@ function SaveButton() {
 
 Use `useToastActions()` when a component only triggers toasts. It avoids subscribing that component to live toast/history state updates.
 
+## History reuse and API sync
+
+```tsx
+import { useToastHistory } from "toaststar";
+
+function NotificationSync() {
+  const {
+    exportHistory,
+    fetchHistory,
+    history,
+    importHistory,
+    postHistory,
+  } = useToastHistory();
+
+  async function backupHistory() {
+    await postHistory("/api/toast-history", { method: "POST" });
+  }
+
+  async function restoreHistory() {
+    await fetchHistory("/api/toast-history", undefined, "replace");
+  }
+
+  async function hydrateFromLocalCache() {
+    const snapshot = exportHistory();
+    await importHistory(snapshot, "merge");
+  }
+
+  return (
+    <div>
+      <button type="button" onClick={backupHistory}>
+        Backup {history.length} items
+      </button>
+      <button type="button" onClick={restoreHistory}>
+        Restore from API
+      </button>
+      <button type="button" onClick={hydrateFromLocalCache}>
+        Reuse current snapshot
+      </button>
+    </div>
+  );
+}
+```
+
+`exportHistory()` returns a reusable snapshot object with `items`, `namespace`, `databaseName`, and `storage`. `postHistory()` sends that snapshot as JSON to your API. `fetchHistory()` accepts API responses shaped as either a raw array of history items, `{ items: [...] }`, or `{ history: [...] }`, then persists the result back into the configured history storage.
+
 ## Dedupe and queue control
 
 ```tsx
