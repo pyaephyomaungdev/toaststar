@@ -1,6 +1,6 @@
 {
   "name": "toaststar",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "homepage": "https://toaststar.pages.dev",
   "repository": {
     "type": "git",
@@ -30,6 +30,7 @@
     "demo": "npm --prefix demo run dev",
     "demo:build": "npm --prefix demo run build",
     "demo:install": "npm --prefix demo install",
+    "prepack": "node ./scripts/validate-package.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
