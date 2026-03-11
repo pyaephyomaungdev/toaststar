@@ -194,9 +194,14 @@ const TOASTSTAR_STYLES = `
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .toaststar-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.98rem;
   font-weight: 700;
   line-height: 1.25;
@@ -204,9 +209,16 @@ const TOASTSTAR_STYLES = `
 }
 
 .toaststar-description {
+  min-width: 0;
   margin-top: 7px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font-size: 0.9rem;
   line-height: 1.48;
+  overflow-wrap: anywhere;
+  word-break: break-word;
   color: color-mix(in srgb, var(--toaststar-color) 82%, transparent);
 }
 

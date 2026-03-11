@@ -53,6 +53,21 @@ describe("ToastProvider", () => {
     expect(screen.getAllByText("Alpha only")).toHaveLength(1);
   });
 
+  it("injects truncation styles for long toast titles and descriptions", () => {
+    render(
+      <ToastProvider scope="style-check" portalTarget={false}>
+        <div>Style check</div>
+      </ToastProvider>,
+    );
+
+    const styleTag = document.head.querySelector("#toaststar-styles");
+
+    expect(styleTag?.textContent).toContain(".toaststar-title");
+    expect(styleTag?.textContent).toContain("text-overflow: ellipsis;");
+    expect(styleTag?.textContent).toContain("-webkit-line-clamp: 2;");
+    expect(styleTag?.textContent).toContain("overflow-wrap: anywhere;");
+  });
+
   it("clears memory-backed history from the panel", async () => {
     render(
       <ToastProvider
