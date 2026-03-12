@@ -510,7 +510,7 @@ export function ReferenceLandingPage(props: ReferenceLandingPageProps) {
           <div className="min-w-0 max-w-[760px] pt-2 sm:pt-4">
             <span className="inline-flex items-center gap-2 rounded-full border border-[#d9deed] bg-white/92 px-4 py-2 text-[0.92rem] text-[#6f6a63] shadow-[0_10px_22px_rgba(48,62,110,0.06)]">
               <span className="h-2.5 w-2.5 rounded-full bg-[#d68446]" />
-              v0.1.0
+              v0.1.6
             </span>
 
             <h1 className="mt-8 flex min-w-0 flex-wrap items-center gap-3 text-[clamp(2.55rem,13vw,6.9rem)] leading-[0.88] tracking-[-0.085em] font-bold font-['Outfit'] sm:mt-10 sm:gap-4 sm:text-[clamp(3rem,15vw,6.9rem)]">

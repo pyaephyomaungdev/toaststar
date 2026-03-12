@@ -53,18 +53,40 @@ describe("ToastProvider", () => {
     expect(screen.getAllByText("Alpha only")).toHaveLength(1);
   });
 
-  it("injects truncation styles for long toast titles and descriptions", () => {
+  it("uses single-line truncation for url-like descriptions", async () => {
     render(
       <ToastProvider scope="style-check" portalTarget={false}>
         <div>Style check</div>
       </ToastProvider>,
     );
 
+    await act(async () => {
+      createToastScope("style-check").show({
+        title: "Published",
+        description: "http://localhost:5174/ytg1scv28f9mak8ohd1sj7o42f76dlongvalue",
+      });
+    });
+
+    expect(await screen.findByText("Published")).toBeInTheDocument();
+    expect(
+      screen
+        .getByText("http://localhost:5174/ytg1scv28f9mak8ohd1sj7o42f76dlongvalue")
+        .closest(".toaststar-description"),
+    ).toHaveAttribute("data-overflow-mode", "single-line");
+  });
+
+  it("injects multiline title styles for long titles", () => {
+    render(
+      <ToastProvider scope="title-style" portalTarget={false}>
+        <div>Title style</div>
+      </ToastProvider>,
+    );
+
     const styleTag = document.head.querySelector("#toaststar-styles");
 
     expect(styleTag?.textContent).toContain(".toaststar-title");
-    expect(styleTag?.textContent).toContain("text-overflow: ellipsis;");
     expect(styleTag?.textContent).toContain("-webkit-line-clamp: 2;");
+    expect(styleTag?.textContent).toContain("white-space: normal;");
     expect(styleTag?.textContent).toContain("overflow-wrap: anywhere;");
   });
 
@@ -93,6 +115,58 @@ describe("ToastProvider", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Nothing stored yet.")).toBeInTheDocument();
+    });
+  });
+
+  it("keeps the top toast visible when maxCollapsed is zero", async () => {
+    render(
+      <ToastProvider scope="collapsed-zero" portalTarget={false} maxCollapsed={0}>
+        <div>Collapsed zero</div>
+      </ToastProvider>,
+    );
+
+    await act(async () => {
+      createToastScope("collapsed-zero").show("Visible toast");
+    });
+
+    const toastCard = (await screen.findByText("Visible toast")).closest(".toaststar-toast");
+
+    expect(toastCard).toHaveStyle({ opacity: "1" });
+  });
+
+  it("supports keyboard expansion for collapsed stacks", async () => {
+    render(
+      <ToastProvider scope="keyboard-stack" portalTarget={false} maxCollapsed={1}>
+        <div>Keyboard stack</div>
+      </ToastProvider>,
+    );
+
+    await act(async () => {
+      const scopedToast = createToastScope("keyboard-stack");
+      scopedToast.show("Older toast");
+      scopedToast.show("Newest toast");
+    });
+
+    expect(screen.queryByText("Older toast")).not.toBeInTheDocument();
+
+    const topToastCard = (await screen.findByText("Newest toast")).closest(
+      ".toaststar-toast",
+    ) as HTMLElement | null;
+
+    expect(topToastCard).toHaveAttribute("role", "button");
+    expect(topToastCard).toHaveAttribute("tabindex", "0");
+    expect(topToastCard).toHaveAttribute("aria-expanded", "false");
+
+    topToastCard?.focus();
+    fireEvent.keyDown(topToastCard as HTMLElement, { key: "Enter" });
+
+    expect(await screen.findByText("Older toast")).toBeInTheDocument();
+    expect(topToastCard).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.keyDown(topToastCard as HTMLElement, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByText("Older toast")).not.toBeInTheDocument();
     });
   });
 
@@ -227,6 +301,42 @@ describe("ToastProvider", () => {
         expect(screen.getByText("Remote restored item")).toBeInTheDocument();
         expect(screen.queryByText("Local history item")).not.toBeInTheDocument();
       });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("throws when postHistory receives a non-ok response", async () => {
+    const handleReady = vi.fn<(value: ToastHistoryContextValue) => void>();
+    const originalFetch = globalThis.fetch;
+    const fetchMock = vi.fn();
+    globalThis.fetch = fetchMock;
+
+    try {
+      render(
+        <ToastProvider
+          scope="history-post-error"
+          history={{ enabled: true, storage: "memory", limit: 12 }}
+          headless
+          portalTarget={false}
+        >
+          <HistoryHarness onReady={handleReady} />
+        </ToastProvider>,
+      );
+
+      await act(async () => {
+        createToastScope("history-post-error").show("Needs sync");
+      });
+
+      fetchMock.mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        statusText: "Service Unavailable",
+      } as Response);
+
+      await expect(
+        handleReady.mock.lastCall?.[0].postHistory("/api/history"),
+      ).rejects.toThrow("toaststar history post failed: 503 Service Unavailable");
     } finally {
       globalThis.fetch = originalFetch;
     }

@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { resolveToastTheme } from "../themes";
@@ -25,6 +26,18 @@ import {
   type TimerEntry,
 } from "../provider/utils";
 
+function getDescriptionOverflowMode(description: string | undefined): "single-line" | "multi-line" {
+  if (!description) {
+    return "multi-line";
+  }
+
+  const tokens = description.trim().split(/\s+/);
+  const hasLongToken = tokens.some((token) => token.length >= 24);
+  const looksLikeUrl = /^https?:\/\//i.test(description.trim());
+
+  return hasLongToken || looksLikeUrl ? "single-line" : "multi-line";
+}
+
 export const ToastCard = memo(function ToastCard(props: {
   toastRecord: ToastRecord;
   top: number;
@@ -35,6 +48,7 @@ export const ToastCard = memo(function ToastCard(props: {
   collapsedIndex: number;
   stackCount: number;
   stackDepth: number;
+  canToggleStack: boolean;
   interactive: boolean;
   defaultShowProgress: boolean;
   timer: TimerEntry | undefined;
@@ -59,6 +73,7 @@ export const ToastCard = memo(function ToastCard(props: {
     collapsedIndex,
     stackCount,
     stackDepth,
+    canToggleStack,
     interactive,
     defaultShowProgress,
     timer,
@@ -178,6 +193,7 @@ export const ToastCard = memo(function ToastCard(props: {
     toastRecord.phase !== "center" &&
     toastRecord.phase !== "docking";
   const hasCustomBody = toastRecord.body !== undefined && toastRecord.body !== null;
+  const descriptionOverflowMode = getDescriptionOverflowMode(toastRecord.description);
 
   const handlePointerDown = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -186,7 +202,8 @@ export const ToastCard = memo(function ToastCard(props: {
       if (
         !interactive ||
         (event.pointerType !== "touch" && event.pointerType !== "pen") ||
-        isInteractiveElementTarget(event.target)
+        (event.target !== event.currentTarget &&
+          isInteractiveElementTarget(event.target))
       ) {
         return;
       }
@@ -203,6 +220,29 @@ export const ToastCard = memo(function ToastCard(props: {
       ref.current?.setPointerCapture?.(event.pointerId);
     },
     [interactive, onPointerDown],
+  );
+
+  const handleKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      if (
+        !canToggleStack ||
+        (event.target !== event.currentTarget && isInteractiveElementTarget(event.target))
+      ) {
+        return;
+      }
+
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        onPress(toastRecord.id);
+        return;
+      }
+
+      if (event.key === "Escape" && expanded) {
+        event.preventDefault();
+        onPress(toastRecord.id);
+      }
+    },
+    [canToggleStack, expanded, onPress, toastRecord.id],
   );
 
   const handlePointerMove = useCallback(
@@ -296,12 +336,21 @@ export const ToastCard = memo(function ToastCard(props: {
       data-custom-body={hasCustomBody ? "true" : "false"}
       data-loading={toastRecord.loading ? "true" : "false"}
       data-swiping={dragOffset !== 0 ? "true" : "false"}
+      role={canToggleStack ? "button" : undefined}
+      tabIndex={canToggleStack ? 0 : undefined}
+      aria-expanded={canToggleStack ? (expanded ? "true" : "false") : undefined}
+      aria-label={
+        canToggleStack
+          ? `${expanded ? "Collapse" : "Expand"} notification stack: ${toastRecord.title}`
+          : undefined
+      }
       onPointerEnter={interactive ? onPointerEnter : undefined}
       onPointerMove={interactive ? handlePointerMove : undefined}
       onPointerDown={interactive ? handlePointerDown : undefined}
       onPointerLeave={interactive ? onPointerLeave : undefined}
       onPointerUp={interactive ? releaseDrag : undefined}
       onPointerCancel={interactive ? (event) => releaseDrag(event, true) : undefined}
+      onKeyDown={canToggleStack ? handleKeyDown : undefined}
       style={{
         top,
         zIndex,
@@ -340,7 +389,12 @@ export const ToastCard = memo(function ToastCard(props: {
               <div className="toaststar-title">{toastRecord.title}</div>
             </div>
             {toastRecord.description ? (
-              <div className="toaststar-description">{toastRecord.description}</div>
+              <div
+                className="toaststar-description"
+                data-overflow-mode={descriptionOverflowMode}
+              >
+                {toastRecord.description}
+              </div>
             ) : null}
             {toastRecord.action ? (
               <div className="toaststar-actions">

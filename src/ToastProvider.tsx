@@ -144,6 +144,10 @@ export function ToastProvider({
     () => normalizeLimit(maxVisible, DEFAULT_MAX_VISIBLE),
     [maxVisible],
   );
+  const resolvedMaxCollapsed = useMemo(
+    () => normalizeLimit(maxCollapsed, DEFAULT_MAX_COLLAPSED),
+    [maxCollapsed],
+  );
   const resolvedBurstMaxVisible = useMemo(() => {
     if (!Number.isFinite(resolvedMaxVisible)) {
       return resolvedMaxVisible;
@@ -1167,12 +1171,20 @@ export function ToastProvider({
         headers.set("content-type", "application/json");
       }
 
-      return fetch(input, {
+      const response = await fetch(input, {
         ...init,
         method: init?.method ?? "POST",
         headers,
         body: JSON.stringify(exportHistory()),
       });
+
+      if (!response.ok) {
+        throw new Error(
+          `toaststar history post failed: ${response.status} ${response.statusText}`.trim(),
+        );
+      }
+
+      return response;
     },
     [exportHistory],
   );
@@ -1211,8 +1223,8 @@ export function ToastProvider({
   );
 
   const visibleToasts = useMemo(
-    () => (expanded ? toasts : toasts.slice(0, Math.max(1, maxCollapsed))),
-    [expanded, maxCollapsed, toasts],
+    () => (expanded ? toasts : toasts.slice(0, Math.max(1, resolvedMaxCollapsed))),
+    [expanded, resolvedMaxCollapsed, toasts],
   );
   const collapsedCount = useMemo(
     () => Math.max(getOpenToasts(toasts).length - 1 + queueCount, 0),
@@ -1297,7 +1309,8 @@ export function ToastProvider({
   );
 
   let runningOffset = expanded ? expandedOffset : 0;
-  const collapsedStackDepth = Math.min(Math.max(maxCollapsed - 1, 0), 2);
+  const collapsedVisibleCount = Math.max(1, resolvedMaxCollapsed);
+  const collapsedStackDepth = Math.min(Math.max(collapsedVisibleCount - 1, 0), 2);
   const layer = headless ? null : (
     <div
       className="toaststar-layer"
@@ -1307,7 +1320,7 @@ export function ToastProvider({
     >
       {visibleToasts.map((toastRecord, index) => {
         const height = measuredHeights[toastRecord.id] ?? 108;
-        const collapsedIndex = Math.min(index, maxCollapsed - 1);
+        const collapsedIndex = Math.min(index, collapsedVisibleCount - 1);
         const collapsedOffset = collapsedIndex * 18;
         const offset = expanded ? runningOffset : collapsedOffset;
         const top = formatViewportTop(
@@ -1322,7 +1335,7 @@ export function ToastProvider({
           : Math.max(0.84, 1 - collapsedIndex * 0.055);
         const opacity = expanded
           ? 1
-          : index < maxCollapsed
+          : index < collapsedVisibleCount
             ? Math.max(0, 1 - collapsedIndex * 0.12)
             : 0;
         const interactive =
@@ -1331,6 +1344,7 @@ export function ToastProvider({
           toastRecord.phase !== "docking";
         const stackCount = !expanded && index === 0 ? collapsedCount : 0;
         const stackDepth = Math.min(stackCount, collapsedStackDepth);
+        const canToggleStack = index === 0 && collapsedCount > 0;
         const nextCard = (
           <ToastCard
             key={toastRecord.id}
@@ -1347,6 +1361,7 @@ export function ToastProvider({
             collapsedIndex={collapsedIndex}
             stackCount={stackCount}
             stackDepth={stackDepth}
+            canToggleStack={canToggleStack}
             interactive={interactive}
             defaultShowProgress={showProgress}
             timer={timersRef.current.get(toastRecord.id)}

@@ -64,6 +64,22 @@ describe("history adapters", () => {
     expect(alphaOptions.databaseName).not.toBe(betaOptions.databaseName);
   });
 
+  it("normalizes custom history limits", () => {
+    expect(
+      normalizeHistoryOptions(
+        { enabled: true, storage: "memory", limit: -3 },
+        "negative-limit",
+      ).limit,
+    ).toBe(0);
+
+    expect(
+      normalizeHistoryOptions(
+        { enabled: true, storage: "memory", limit: Number.NaN },
+        "nan-limit",
+      ).limit,
+    ).toBe(50);
+  });
+
   it("uses namespace-aware primary keys for IndexedDB history rows", () => {
     expect(STORED_HISTORY_KEY_PATH).toEqual(["namespace", "id"]);
     expect(getStoredHistoryKey("alpha", "toast-1")).toEqual([
