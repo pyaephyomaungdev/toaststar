@@ -1,10 +1,10 @@
 {
   "name": "toaststar",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "homepage": "https://toaststar.pages.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pyaephyomaungdev/toaststar.git"
+    "url": "git+https://github.com/pyaephyomaungdev/toaststar.git"
   },
   "description": "Cinematic React toast notifications with center-launch animations, stacked cards, and optional IndexedDB history.",
   "type": "module",
