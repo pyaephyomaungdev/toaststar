@@ -869,7 +869,7 @@ export function ReferenceLandingPage(props: ReferenceLandingPageProps) {
                     </div>
                     <div className="flex w-full flex-wrap gap-2.5 sm:gap-3">
                       {(
-                        ["glass", "midnight", "sunset", "forest", "ocean"] as ThemeOption[]
+                        ["glass", "light", "midnight", "sunset", "forest", "ocean"] as ThemeOption[]
                       ).map((item) => (
                         <BuilderChip
                           key={item}

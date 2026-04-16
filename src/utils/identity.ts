@@ -73,9 +73,7 @@ export function resolveHistoryDatabaseName(scope?: string): string {
   const locationParts = getLocationParts();
   const origin = locationParts?.origin ?? "global";
   const explicitScope = normalizeScope(scope);
-  const scopeSegment = explicitScope
-    ? `-${normalizeSegment(explicitScope) || "scoped"}`
-    : "";
+  const scopeSegment = explicitScope ? `-${normalizeSegment(explicitScope) || "scoped"}` : "";
 
   return `${PACKAGE_PREFIX}-history-${normalizeSegment(origin) || "global"}${scopeSegment}-${hashString(origin)}`;
 }

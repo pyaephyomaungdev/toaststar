@@ -61,14 +61,7 @@ export function DefaultToastIcon({ intent }: { intent: ToastIntent }) {
           strokeLinecap="round"
           strokeWidth="2.1"
         />
-        <circle
-          cx="10"
-          cy="10"
-          r="7.1"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-        />
+        <circle cx="10" cy="10" r="7.1" fill="none" stroke="currentColor" strokeWidth="1.8" />
       </svg>
     );
   }

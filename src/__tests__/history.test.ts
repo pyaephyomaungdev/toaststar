@@ -9,14 +9,8 @@ import {
   replaceStoredHistoryItems,
   saveHistoryItem,
 } from "../history";
-import {
-  STORED_HISTORY_KEY_PATH,
-  getStoredHistoryKey,
-} from "../history/indexeddb";
-import {
-  areHistoryItemsEqual,
-  toastToHistoryItem,
-} from "../provider/utils";
+import { STORED_HISTORY_KEY_PATH, getStoredHistoryKey } from "../history/indexeddb";
+import { areHistoryItemsEqual, toastToHistoryItem } from "../provider/utils";
 import type { ToastRecord } from "../types";
 
 describe("history adapters", () => {
@@ -66,26 +60,19 @@ describe("history adapters", () => {
 
   it("normalizes custom history limits", () => {
     expect(
-      normalizeHistoryOptions(
-        { enabled: true, storage: "memory", limit: -3 },
-        "negative-limit",
-      ).limit,
+      normalizeHistoryOptions({ enabled: true, storage: "memory", limit: -3 }, "negative-limit")
+        .limit,
     ).toBe(0);
 
     expect(
-      normalizeHistoryOptions(
-        { enabled: true, storage: "memory", limit: Number.NaN },
-        "nan-limit",
-      ).limit,
+      normalizeHistoryOptions({ enabled: true, storage: "memory", limit: Number.NaN }, "nan-limit")
+        .limit,
     ).toBe(50);
   });
 
   it("uses namespace-aware primary keys for IndexedDB history rows", () => {
     expect(STORED_HISTORY_KEY_PATH).toEqual(["namespace", "id"]);
-    expect(getStoredHistoryKey("alpha", "toast-1")).toEqual([
-      "alpha",
-      "toast-1",
-    ]);
+    expect(getStoredHistoryKey("alpha", "toast-1")).toEqual(["alpha", "toast-1"]);
   });
 
   it("ignores progress-only toast changes when syncing history", () => {
@@ -111,10 +98,7 @@ describe("history adapters", () => {
     };
 
     expect(
-      areHistoryItemsEqual(
-        toastToHistoryItem(baseToast),
-        toastToHistoryItem(updatedToast),
-      ),
+      areHistoryItemsEqual(toastToHistoryItem(baseToast), toastToHistoryItem(updatedToast)),
     ).toBe(true);
   });
 
@@ -145,10 +129,7 @@ describe("history adapters", () => {
     expect(parseToastHistoryPayload(snapshot)).toEqual(snapshot.items);
     expect(
       parseToastHistoryPayload({
-        history: [
-          snapshot.items[0],
-          { id: "bad-row", title: "", createdAt: "nope" },
-        ],
+        history: [snapshot.items[0], { id: "bad-row", title: "", createdAt: "nope" }],
       }),
     ).toEqual(snapshot.items);
   });

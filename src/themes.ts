@@ -1,9 +1,4 @@
-import type {
-  ResolvedToastTheme,
-  ToastAppearance,
-  ToastIntent,
-  ToastThemeName,
-} from "./types";
+import type { ResolvedToastTheme, ToastAppearance, ToastIntent, ToastThemeName } from "./types";
 
 const INTENT_ACCENTS: Record<ToastIntent, string> = {
   default: "#8fb3ff",
@@ -16,19 +11,27 @@ const INTENT_ACCENTS: Record<ToastIntent, string> = {
 const THEME_PRESETS: Record<ToastThemeName, Omit<ResolvedToastTheme, "accent">> = {
   glass: {
     radius: "26px",
-    background:
-      "linear-gradient(180deg, rgba(255,255,255,0.42), rgba(255,255,255,0.18))",
-    border: "1px solid rgba(255,255,255,0.26)",
-    color: "#f6f7fb",
-    shadow: "0 24px 60px rgba(10, 14, 28, 0.28)",
-    blur: "22px",
+    background: "linear-gradient(145deg, rgba(255,255,255,0.98), rgba(244,247,255,0.94))",
+    border: "1px solid rgba(110, 129, 209, 0.18)",
+    color: "#1a2138",
+    shadow: "0 24px 60px rgba(10, 14, 28, 0.16)",
+    blur: "16px",
     width: "min(388px, calc(100vw - 32px))",
-    closeButtonBackground: "rgba(255,255,255,0.14)",
+    closeButtonBackground: "rgba(26, 33, 56, 0.07)",
+  },
+  light: {
+    radius: "24px",
+    background: "linear-gradient(180deg, #ffffff, #fafbff)",
+    border: "1px solid rgba(0, 0, 0, 0.08)",
+    color: "#1c1f26",
+    shadow: "0 20px 48px rgba(0, 0, 0, 0.10)",
+    blur: "0px",
+    width: "min(388px, calc(100vw - 32px))",
+    closeButtonBackground: "rgba(0, 0, 0, 0.05)",
   },
   midnight: {
     radius: "24px",
-    background:
-      "linear-gradient(180deg, rgba(15,19,33,0.96), rgba(9,11,20,0.94))",
+    background: "linear-gradient(180deg, rgba(15,19,33,0.96), rgba(9,11,20,0.94))",
     border: "1px solid rgba(126, 152, 255, 0.22)",
     color: "#eff3ff",
     shadow: "0 24px 52px rgba(2, 4, 10, 0.44)",
@@ -38,8 +41,7 @@ const THEME_PRESETS: Record<ToastThemeName, Omit<ResolvedToastTheme, "accent">> 
   },
   sunset: {
     radius: "28px",
-    background:
-      "linear-gradient(135deg, rgba(91,28,34,0.98), rgba(187,88,51,0.94))",
+    background: "linear-gradient(135deg, rgba(91,28,34,0.98), rgba(187,88,51,0.94))",
     border: "1px solid rgba(255, 208, 176, 0.2)",
     color: "#fff8f3",
     shadow: "0 26px 60px rgba(102, 34, 23, 0.34)",
@@ -49,8 +51,7 @@ const THEME_PRESETS: Record<ToastThemeName, Omit<ResolvedToastTheme, "accent">> 
   },
   forest: {
     radius: "24px",
-    background:
-      "linear-gradient(135deg, rgba(15,46,34,0.96), rgba(32,84,63,0.95))",
+    background: "linear-gradient(135deg, rgba(15,46,34,0.96), rgba(32,84,63,0.95))",
     border: "1px solid rgba(141, 226, 189, 0.18)",
     color: "#f1fff8",
     shadow: "0 24px 54px rgba(8, 28, 20, 0.32)",
@@ -60,8 +61,7 @@ const THEME_PRESETS: Record<ToastThemeName, Omit<ResolvedToastTheme, "accent">> 
   },
   ocean: {
     radius: "24px",
-    background:
-      "linear-gradient(135deg, rgba(13,35,78,0.96), rgba(18,102,128,0.92))",
+    background: "linear-gradient(135deg, rgba(13,35,78,0.96), rgba(18,102,128,0.92))",
     border: "1px solid rgba(140, 210, 255, 0.18)",
     color: "#f5fcff",
     shadow: "0 26px 56px rgba(7, 19, 46, 0.34)",
@@ -104,8 +104,7 @@ function mergeAppearance(
     blur: toCssSize(appearance.blur, base.blur),
     width: toCssSize(appearance.width, base.width),
     accent: appearance.accent ?? INTENT_ACCENTS[intent],
-    closeButtonBackground:
-      appearance.closeButtonBackground ?? base.closeButtonBackground,
+    closeButtonBackground: appearance.closeButtonBackground ?? base.closeButtonBackground,
   };
 }
 

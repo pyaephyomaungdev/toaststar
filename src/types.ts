@@ -2,12 +2,7 @@ import type { CSSProperties, ReactNode } from "react";
 
 export type ToastPosition = "top" | "bottom";
 export type ToastIntent = "default" | "success" | "error" | "warning" | "info";
-export type ToastThemeName =
-  | "glass"
-  | "midnight"
-  | "sunset"
-  | "forest"
-  | "ocean";
+export type ToastThemeName = "glass" | "light" | "midnight" | "sunset" | "forest" | "ocean";
 export type ToastOverflowStrategy = "queue" | "drop-oldest" | "drop-newest";
 export type ToastDedupeBehavior = "ignore" | "update" | "reset-duration";
 export type ToastHistoryStorage = "indexeddb" | "memory";
@@ -56,6 +51,8 @@ export interface ToastInput {
   loading?: boolean;
   progress?: number;
   showProgress?: boolean;
+  introDuration?: number;
+  exitDuration?: number;
   dedupeKey?: string;
   metadata?: Record<string, unknown>;
   onOpen?: (id: string) => void;
@@ -143,8 +140,7 @@ export type ToastHistoryImportSource =
   | { items?: ToastHistoryItem[] }
   | { history?: ToastHistoryItem[] };
 
-export interface ToastHistoryPostInit
-  extends Omit<RequestInit, "body" | "method"> {
+export interface ToastHistoryPostInit extends Omit<RequestInit, "body" | "method"> {
   method?: "POST" | "PUT" | "PATCH";
 }
 
@@ -176,6 +172,7 @@ export interface ToastProviderProps {
   headless?: boolean;
   portalTarget?: string | HTMLElement | false | null;
   swipeToDismiss?: boolean;
+  swipeDismissDistance?: number | string;
   onToastOpen?: (toast: ToastRecord) => void;
   onToastClose?: (toast: ToastRecord, reason: ToastCloseReason) => void;
   onToastAction?: (toast: ToastRecord) => void;
@@ -212,10 +209,7 @@ export interface ToastHistoryContextValue {
     source: ToastHistoryImportSource,
     behavior?: ToastHistoryImportBehavior,
   ) => Promise<ToastHistoryItem[]>;
-  postHistory: (
-    input: RequestInfo | URL,
-    init?: ToastHistoryPostInit,
-  ) => Promise<Response>;
+  postHistory: (input: RequestInfo | URL, init?: ToastHistoryPostInit) => Promise<Response>;
   fetchHistory: (
     input: RequestInfo | URL,
     init?: RequestInit,
@@ -224,9 +218,7 @@ export interface ToastHistoryContextValue {
 }
 
 export interface ToastContextValue
-  extends ToastActionContextValue,
-    ToastStateContextValue,
-    ToastHistoryContextValue {}
+  extends ToastActionContextValue, ToastStateContextValue, ToastHistoryContextValue {}
 
 export interface ToastHistoryPanelProps {
   title?: string;

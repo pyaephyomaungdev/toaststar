@@ -136,10 +136,7 @@ function shallowEqualObject(
   return true;
 }
 
-export function areHistoryItemsEqual(
-  left: ToastHistoryItem,
-  right: ToastHistoryItem,
-): boolean {
+export function areHistoryItemsEqual(left: ToastHistoryItem, right: ToastHistoryItem): boolean {
   return (
     left.id === right.id &&
     left.title === right.title &&
@@ -217,7 +214,7 @@ export function getToastProgress(
   const remaining =
     typeof timer.closesAt === "number"
       ? Math.max(0, timer.closesAt - now)
-      : timer.remaining ?? timer.autoCloseDuration;
+      : (timer.remaining ?? timer.autoCloseDuration);
 
   return {
     mode: "determinate",
@@ -245,13 +242,14 @@ export function resolvePortalTarget(
     return resolvedTarget instanceof HTMLElement ? resolvedTarget : document.body;
   }
 
+  if ("isConnected" in target && !target.isConnected) {
+    return document.body;
+  }
+
   return target;
 }
 
-export function swallowHistoryError(
-  error: unknown,
-  action: "clear" | "load" | "save",
-): void {
+export function swallowHistoryError(error: unknown, action: "clear" | "load" | "save"): void {
   const nodeEnv = (
     globalThis as typeof globalThis & {
       process?: { env?: { NODE_ENV?: string } };

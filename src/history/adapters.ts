@@ -4,9 +4,7 @@ import { memoryHistoryAdapter, type ToastHistoryAdapter } from "./memory";
 import type { NormalizedToastHistoryOptions } from "./normalizeHistoryOptions";
 import { normalizeToastHistoryItems } from "./snapshot";
 
-function resolvePrimaryAdapter(
-  options: NormalizedToastHistoryOptions,
-): ToastHistoryAdapter {
+function resolvePrimaryAdapter(options: NormalizedToastHistoryOptions): ToastHistoryAdapter {
   return options.storage === "memory" ? memoryHistoryAdapter : indexedDbHistoryAdapter;
 }
 
@@ -49,9 +47,7 @@ export async function saveHistoryItem(
   await runWithFallback(options, (adapter) => adapter.save(options, item), undefined);
 }
 
-export async function clearHistoryItems(
-  options: NormalizedToastHistoryOptions,
-): Promise<void> {
+export async function clearHistoryItems(options: NormalizedToastHistoryOptions): Promise<void> {
   if (!options.enabled) {
     return;
   }
@@ -69,11 +65,7 @@ export async function replaceStoredHistoryItems(
 
   const normalizedItems = normalizeToastHistoryItems(items, options.limit);
 
-  await runWithFallback(
-    options,
-    (adapter) => adapter.replace(options, normalizedItems),
-    undefined,
-  );
+  await runWithFallback(options, (adapter) => adapter.replace(options, normalizedItems), undefined);
 
   return normalizedItems;
 }
@@ -89,16 +81,9 @@ export async function mergeStoredHistoryItems(
   }
 
   const currentItems = await listHistory(options);
-  const nextItems = normalizeToastHistoryItems(
-    [...incomingItems, ...currentItems],
-    options.limit,
-  );
+  const nextItems = normalizeToastHistoryItems([...incomingItems, ...currentItems], options.limit);
 
-  await runWithFallback(
-    options,
-    (adapter) => adapter.replace(options, nextItems),
-    undefined,
-  );
+  await runWithFallback(options, (adapter) => adapter.replace(options, nextItems), undefined);
 
   return nextItems;
 }

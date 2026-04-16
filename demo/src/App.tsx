@@ -38,20 +38,9 @@ export default function App() {
       radius,
       blur,
       width: "min(408px, calc(100vw - 32px))",
-      background:
-        theme === "glass"
-          ? "linear-gradient(145deg, rgba(255,255,255,0.98), rgba(244,247,255,0.94))"
-          : undefined,
-      border:
-        theme === "glass"
-          ? "1px solid rgba(110, 129, 209, 0.24)"
-          : undefined,
-      color: theme === "glass" ? "#17213d" : undefined,
       shadow: "0 24px 54px rgba(46, 59, 112, 0.18)",
-      closeButtonBackground:
-        theme === "glass" ? "rgba(23, 33, 61, 0.06)" : undefined,
     }),
-    [blur, radius, theme],
+    [blur, radius],
   );
 
   const { trigger: hapticTrigger } = useHaptic();

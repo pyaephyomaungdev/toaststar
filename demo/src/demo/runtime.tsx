@@ -588,6 +588,7 @@ toast.show({
 
 export const LANDING_THEME_SURFACE_LABELS: Record<ThemeOption, string> = {
   glass: "Frosted glass",
+  light: "Clean white",
   midnight: "Midnight ink",
   sunset: "Apricot haze",
   forest: "Earth tone",

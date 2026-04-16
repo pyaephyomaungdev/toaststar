@@ -12,10 +12,7 @@ const INDEX_NAMESPACE = "namespace";
 const INDEX_NAMESPACE_CREATED_AT = "namespaceCreatedAt";
 export const STORED_HISTORY_KEY_PATH: [string, string] = ["namespace", "id"];
 
-export function getStoredHistoryKey(
-  namespace: string,
-  id: string,
-): [string, string] {
+export function getStoredHistoryKey(namespace: string, id: string): [string, string] {
   return [namespace, id];
 }
 
@@ -133,10 +130,7 @@ function readRowsByNamespace(
   });
 }
 
-function deleteRowsByKey(
-  database: IDBDatabase,
-  rows: StoredToastHistoryItem[],
-): Promise<void> {
+function deleteRowsByKey(database: IDBDatabase, rows: StoredToastHistoryItem[]): Promise<void> {
   if (rows.length === 0) {
     return Promise.resolve();
   }

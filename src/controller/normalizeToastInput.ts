@@ -7,10 +7,7 @@ import type {
   ToastVariantInput,
 } from "../types";
 
-export function normalizeVariantInput(
-  input: ToastVariantInput,
-  intent: ToastIntent,
-): ToastInput {
+export function normalizeVariantInput(input: ToastVariantInput, intent: ToastIntent): ToastInput {
   if (typeof input === "string") {
     return {
       title: input,

@@ -3,14 +3,8 @@ import type { NormalizedToastHistoryOptions } from "./normalizeHistoryOptions";
 
 export interface ToastHistoryAdapter {
   list: (options: NormalizedToastHistoryOptions) => Promise<ToastHistoryItem[]>;
-  save: (
-    options: NormalizedToastHistoryOptions,
-    item: ToastHistoryItem,
-  ) => Promise<void>;
-  replace: (
-    options: NormalizedToastHistoryOptions,
-    items: ToastHistoryItem[],
-  ) => Promise<void>;
+  save: (options: NormalizedToastHistoryOptions, item: ToastHistoryItem) => Promise<void>;
+  replace: (options: NormalizedToastHistoryOptions, items: ToastHistoryItem[]) => Promise<void>;
   clear: (options: NormalizedToastHistoryOptions) => Promise<void>;
 }
 
@@ -21,22 +15,27 @@ function getStorageKey(options: NormalizedToastHistoryOptions): string {
 }
 
 export const memoryHistoryAdapter: ToastHistoryAdapter = {
-  async list(options) {
-    return (memoryStore.get(getStorageKey(options)) ?? []).slice(0, options.limit);
+  list(options) {
+    return Promise.resolve((memoryStore.get(getStorageKey(options)) ?? []).slice(0, options.limit));
   },
-  async save(options, item) {
+  save(options, item) {
     const storageKey = getStorageKey(options);
-    const existingItems = memoryStore.get(storageKey) ?? [];
+    const rawItems = memoryStore.get(storageKey) ?? [];
+    const existingItems =
+      rawItems.length > options.limit * 2 ? rawItems.slice(0, options.limit) : rawItems;
     const nextItems = [item, ...existingItems.filter((entry) => entry.id !== item.id)]
       .sort((left, right) => right.createdAt - left.createdAt)
       .slice(0, options.limit);
 
     memoryStore.set(storageKey, nextItems);
+    return Promise.resolve();
   },
-  async clear(options) {
+  clear(options) {
     memoryStore.delete(getStorageKey(options));
+    return Promise.resolve();
   },
-  async replace(options, items) {
+  replace(options, items) {
     memoryStore.set(getStorageKey(options), items.slice(0, options.limit));
+    return Promise.resolve();
   },
 };

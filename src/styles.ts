@@ -30,10 +30,10 @@ const TOASTSTAR_STYLES = `
   backdrop-filter: blur(var(--toaststar-blur));
   -webkit-backdrop-filter: blur(var(--toaststar-blur));
   transition:
-    top 420ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    top var(--toaststar-intro-duration, 420ms) cubic-bezier(0.16, 1, 0.3, 1),
+    transform var(--toaststar-exit-duration, 220ms) cubic-bezier(0.22, 1, 0.36, 1),
     opacity 180ms ease,
-    box-shadow 220ms ease;
+    box-shadow var(--toaststar-exit-duration, 220ms) ease;
   will-change: top, transform, opacity;
   isolation: isolate;
   transform-origin: center center;
@@ -458,6 +458,13 @@ const TOASTSTAR_STYLES = `
       top 160ms linear,
       transform 160ms linear,
       opacity 160ms linear;
+  }
+
+  .toaststar-progress[data-mode="indeterminate"] .toaststar-progress-fill {
+    animation: none;
+    width: 100%;
+    transform: scaleX(0.4);
+    opacity: 0.6;
   }
 }
 `;

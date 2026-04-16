@@ -13,12 +13,7 @@ export {
 } from "./history";
 export { ToastHistoryPanel } from "./ToastHistoryPanel";
 export { ToastProvider } from "./ToastProvider";
-export {
-  useToast,
-  useToastActions,
-  useToastHistory,
-  useToastState,
-} from "./hooks/useToast";
+export { useToast, useToastActions, useToastHistory, useToastState } from "./hooks/useToast";
 export type {
   ToastAction,
   ToastActionContextValue,

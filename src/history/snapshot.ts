@@ -10,6 +10,7 @@ import type { NormalizedToastHistoryOptions } from "./normalizeHistoryOptions";
 
 const VALID_TOAST_THEMES = new Set<ToastThemeName>([
   "glass",
+  "light",
   "midnight",
   "sunset",
   "forest",
@@ -27,29 +28,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function cloneAppearance(
-  value: unknown,
-): ToastAppearance | undefined {
+function cloneAppearance(value: unknown): ToastAppearance | undefined {
   return isRecord(value) ? { ...value } : undefined;
 }
 
-function cloneMetadata(
-  value: unknown,
-): Record<string, unknown> | undefined {
+function cloneMetadata(value: unknown): Record<string, unknown> | undefined {
   return isRecord(value) ? { ...value } : undefined;
 }
 
-export function normalizeToastHistoryItem(
-  value: unknown,
-): ToastHistoryItem | null {
+export function normalizeToastHistoryItem(value: unknown): ToastHistoryItem | null {
   if (!isRecord(value)) {
     return null;
   }
 
   const id = typeof value.id === "string" ? value.id.trim() : "";
   const title = typeof value.title === "string" ? value.title.trim() : "";
-  const description =
-    typeof value.description === "string" ? value.description : undefined;
+  const description = typeof value.description === "string" ? value.description : undefined;
   const createdAt =
     typeof value.createdAt === "number" && Number.isFinite(value.createdAt)
       ? value.createdAt
@@ -127,10 +121,7 @@ export function parseToastHistoryPayload(
 
 export function createToastHistorySnapshot(
   items: readonly ToastHistoryItem[],
-  options: Pick<
-    NormalizedToastHistoryOptions,
-    "databaseName" | "limit" | "namespace" | "storage"
-  >,
+  options: Pick<NormalizedToastHistoryOptions, "databaseName" | "limit" | "namespace" | "storage">,
   scope?: string,
 ): ToastHistorySnapshot {
   return {

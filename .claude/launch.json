@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "demo",
+      "runtimeExecutable": "/usr/local/bin/node",
+      "runtimeArgs": ["./demo/node_modules/.bin/vite", "--port", "5173"],
+      "port": 5173
+    }
+  ]
+}

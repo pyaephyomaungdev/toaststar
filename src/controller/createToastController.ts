@@ -85,17 +85,11 @@ function emit(scope: string | undefined, command: ToastCommand): void {
   }
 }
 
-function createVariant(
-  intent: ToastIntent,
-  show: (input: ToastContentInput) => string,
-) {
+function createVariant(intent: ToastIntent, show: (input: ToastContentInput) => string) {
   return (input: ToastVariantInput) => show(normalizeVariantInput(input, intent));
 }
 
-export function subscribeToToastCommands(
-  listener: ToastListener,
-  scope?: string,
-): () => void {
+export function subscribeToToastCommands(listener: ToastListener, scope?: string): () => void {
   const scopeKey = getScopeKey(scope);
   const listeners = getScopedListeners(scopeKey);
   listeners.add(listener);
@@ -174,8 +168,6 @@ export function createToastController(scope?: string): ToastController {
   return controller;
 }
 
-export function getToastControllerScope(
-  controller: ToastController,
-): string | undefined {
+export function getToastControllerScope(controller: ToastController): string | undefined {
   return controllerScopes.get(controller);
 }

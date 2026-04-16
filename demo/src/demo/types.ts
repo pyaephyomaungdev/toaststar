@@ -4,7 +4,7 @@ import { ToastProvider } from "toaststar";
 export type ProviderAppearance = NonNullable<
   ComponentProps<typeof ToastProvider>["appearance"]
 >;
-export type ThemeOption = "glass" | "midnight" | "sunset" | "forest" | "ocean";
+export type ThemeOption = "glass" | "light" | "midnight" | "sunset" | "forest" | "ocean";
 export type PositionOption =
   | "top"
   | "bottom"

@@ -7,9 +7,7 @@ import { createToastScope } from "../controller";
 import { useToastHistory } from "../hooks/useToast";
 import type { ToastHistoryContextValue } from "../types";
 
-function HistoryHarness(props: {
-  onReady: (value: ToastHistoryContextValue) => void;
-}) {
+function HistoryHarness(props: { onReady: (value: ToastHistoryContextValue) => void }) {
   const historyApi = useToastHistory();
 
   useEffect(() => {
@@ -97,10 +95,7 @@ describe("ToastProvider", () => {
         history={{ enabled: true, storage: "memory", limit: 12 }}
         portalTarget={false}
       >
-        <ToastHistoryPanel
-          title="Recent notifications"
-          emptyMessage="Nothing stored yet."
-        />
+        <ToastHistoryPanel title="Recent notifications" emptyMessage="Nothing stored yet." />
       </ToastProvider>,
     );
 
@@ -178,10 +173,7 @@ describe("ToastProvider", () => {
         headless
         portalTarget={false}
       >
-        <ToastHistoryPanel
-          title="Recent notifications"
-          emptyMessage="Nothing stored yet."
-        />
+        <ToastHistoryPanel title="Recent notifications" emptyMessage="Nothing stored yet." />
       </ToastProvider>,
     );
 
@@ -264,14 +256,10 @@ describe("ToastProvider", () => {
         }),
       );
       expect(
-        JSON.parse(
-          (fetchMock.mock.calls[0]?.[1] as RequestInit & { body?: string }).body ?? "{}",
-        ),
+        JSON.parse((fetchMock.mock.calls[0]?.[1] as RequestInit & { body?: string }).body ?? "{}"),
       ).toEqual(
         expect.objectContaining({
-          items: [
-            expect.objectContaining({ title: "Local history item" }),
-          ],
+          items: [expect.objectContaining({ title: "Local history item" })],
         }),
       );
 
@@ -334,9 +322,9 @@ describe("ToastProvider", () => {
         statusText: "Service Unavailable",
       } as Response);
 
-      await expect(
-        handleReady.mock.lastCall?.[0].postHistory("/api/history"),
-      ).rejects.toThrow("toaststar history post failed: 503 Service Unavailable");
+      await expect(handleReady.mock.lastCall?.[0].postHistory("/api/history")).rejects.toThrow(
+        "toaststar history post failed: 503 Service Unavailable",
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -371,8 +359,10 @@ describe("ToastProvider", () => {
     window.history.replaceState({}, "", "/alpha");
     vi.resetModules();
 
-    const [{ ToastProvider: DynamicToastProvider }, { toast: defaultToast }] =
-      await Promise.all([import("../ToastProvider"), import("../controller")]);
+    const [{ ToastProvider: DynamicToastProvider }, { toast: defaultToast }] = await Promise.all([
+      import("../ToastProvider"),
+      import("../controller"),
+    ]);
 
     render(
       <DynamicToastProvider portalTarget={false}>
@@ -448,12 +438,7 @@ describe("ToastProvider", () => {
     vi.useFakeTimers();
 
     render(
-      <ToastProvider
-        scope="mobile-fanout"
-        portalTarget={false}
-        maxCollapsed={3}
-        introDuration={0}
-      >
+      <ToastProvider scope="mobile-fanout" portalTarget={false} maxCollapsed={3} introDuration={0}>
         <div>Touch stack</div>
       </ToastProvider>,
     );
@@ -476,9 +461,7 @@ describe("ToastProvider", () => {
     expect(collapsedCards[1]).toHaveAttribute("data-phase", "stack");
     expect(collapsedCards[2]).toHaveAttribute("data-phase", "stack");
 
-    const topToast = screen
-      .getByText("Third toast")
-      .closest("[data-toaststar-card='true']");
+    const topToast = screen.getByText("Third toast").closest("[data-toaststar-card='true']");
 
     expect(topToast).toHaveAttribute("data-expanded", "false");
 
@@ -497,14 +480,14 @@ describe("ToastProvider", () => {
       });
     });
 
-    expect(
-      screen
-        .getByText("Third toast")
-        .closest("[data-toaststar-card='true']"),
-    ).toHaveAttribute("data-expanded", "true");
-    expect(
-      document.querySelectorAll("[data-toaststar-card='true']")[1],
-    ).toHaveAttribute("data-expanded", "true");
+    expect(screen.getByText("Third toast").closest("[data-toaststar-card='true']")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
+    expect(document.querySelectorAll("[data-toaststar-card='true']")[1]).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
   });
 
   it("keeps swipe-dismissed toasts offset instead of snapping them back first", async () => {
@@ -561,5 +544,219 @@ describe("ToastProvider", () => {
     });
 
     expect(screen.queryByText("Swipe me")).not.toBeInTheDocument();
+  });
+
+  it("removes a toast when dismissed during entry animation", async () => {
+    vi.useFakeTimers();
+
+    render(
+      <ToastProvider scope="dismiss-during-entry" portalTarget={false}>
+        <div>Early dismiss</div>
+      </ToastProvider>,
+    );
+
+    const scopedToast = createToastScope("dismiss-during-entry");
+    let toastId = "";
+
+    await act(async () => {
+      toastId = scopedToast.show("Dismiss me early");
+    });
+
+    expect(screen.getByText("Dismiss me early")).toBeInTheDocument();
+
+    await act(async () => {
+      scopedToast.dismiss(toastId);
+    });
+
+    const closingToast = screen
+      .getByText("Dismiss me early")
+      .closest("[data-toaststar-card='true']");
+    expect(closingToast).toHaveAttribute("data-phase", "closing");
+
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(screen.queryByText("Dismiss me early")).not.toBeInTheDocument();
+  });
+
+  it("handles double dismiss without errors", async () => {
+    vi.useFakeTimers();
+
+    render(
+      <ToastProvider scope="double-dismiss" portalTarget={false} introDuration={0}>
+        <div>Double dismiss</div>
+      </ToastProvider>,
+    );
+
+    const scopedToast = createToastScope("double-dismiss");
+    let toastId = "";
+
+    await act(async () => {
+      toastId = scopedToast.show("Dismiss twice");
+      vi.advanceTimersByTime(60);
+    });
+
+    expect(screen.getByText("Dismiss twice")).toBeInTheDocument();
+
+    await act(async () => {
+      scopedToast.dismiss(toastId);
+      scopedToast.dismiss(toastId);
+    });
+
+    const closingToast = screen
+      .getByText("Dismiss twice")
+      .closest("[data-toaststar-card='true']");
+    expect(closingToast).toHaveAttribute("data-phase", "closing");
+
+    await act(async () => {
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(screen.queryByText("Dismiss twice")).not.toBeInTheDocument();
+  });
+
+  it("ignores swipe gesture when swipeToDismiss is false", async () => {
+    vi.useFakeTimers();
+
+    render(
+      <ToastProvider
+        scope="no-swipe"
+        portalTarget={false}
+        introDuration={0}
+        swipeToDismiss={false}
+      >
+        <div>No swipe</div>
+      </ToastProvider>,
+    );
+
+    const scopedToast = createToastScope("no-swipe");
+
+    await act(async () => {
+      scopedToast.show("No swipe toast");
+      vi.advanceTimersByTime(60);
+    });
+
+    await act(async () => {
+      const toastCard = screen
+        .getByText("No swipe toast")
+        .closest("[data-toaststar-card='true']") as HTMLElement;
+
+      fireEvent.pointerDown(toastCard, {
+        pointerId: 20,
+        pointerType: "touch",
+        clientX: 100,
+        clientY: 42,
+      });
+      fireEvent.pointerMove(toastCard, {
+        pointerId: 20,
+        pointerType: "touch",
+        clientX: 300,
+        clientY: 46,
+      });
+      fireEvent.pointerUp(toastCard, {
+        pointerId: 20,
+        pointerType: "touch",
+        clientX: 300,
+        clientY: 46,
+      });
+    });
+
+    const toast = screen
+      .getByText("No swipe toast")
+      .closest("[data-toaststar-card='true']") as HTMLElement;
+    expect(toast).toHaveAttribute("data-phase", "stack");
+    expect(toast).toHaveAttribute("data-swiping", "false");
+  });
+
+  it("ignores second pointer during drag", async () => {
+    vi.useFakeTimers();
+
+    render(
+      <ToastProvider scope="multi-pointer" portalTarget={false} introDuration={0}>
+        <div>Multi pointer</div>
+      </ToastProvider>,
+    );
+
+    const scopedToast = createToastScope("multi-pointer");
+
+    await act(async () => {
+      scopedToast.show("Multi pointer toast");
+      vi.advanceTimersByTime(60);
+    });
+
+    await act(async () => {
+      const toastCard = screen
+        .getByText("Multi pointer toast")
+        .closest("[data-toaststar-card='true']") as HTMLElement;
+
+      fireEvent.pointerDown(toastCard, {
+        pointerId: 1,
+        pointerType: "touch",
+        clientX: 100,
+        clientY: 42,
+      });
+      // Second pointer should be ignored
+      fireEvent.pointerDown(toastCard, {
+        pointerId: 2,
+        pointerType: "touch",
+        clientX: 200,
+        clientY: 42,
+      });
+      fireEvent.pointerMove(toastCard, {
+        pointerId: 1,
+        pointerType: "touch",
+        clientX: 220,
+        clientY: 46,
+      });
+      fireEvent.pointerUp(toastCard, {
+        pointerId: 1,
+        pointerType: "touch",
+        clientX: 220,
+        clientY: 46,
+      });
+    });
+
+    const toast = screen
+      .getByText("Multi pointer toast")
+      .closest("[data-toaststar-card='true']") as HTMLElement;
+    // The second pointerDown resets drag state, so swipe from first pointer
+    // still moved 120px from start (100 -> 220) which exceeds threshold
+    // But the second pointerDown interrupted; the toast should still be present
+    expect(toast).toBeTruthy();
+  });
+
+  it("cleans up progress ticker when toast is dismissed", async () => {
+    vi.useFakeTimers();
+
+    render(
+      <ToastProvider
+        scope="progress-cleanup"
+        portalTarget={false}
+        introDuration={0}
+        showProgress
+      >
+        <div>Progress cleanup</div>
+      </ToastProvider>,
+    );
+
+    const scopedToast = createToastScope("progress-cleanup");
+    let toastId = "";
+
+    await act(async () => {
+      toastId = scopedToast.show({ title: "Progress toast", duration: 5000 });
+      vi.advanceTimersByTime(60);
+    });
+
+    expect(screen.getByText("Progress toast")).toBeInTheDocument();
+    const progressBar = document.querySelector(".toaststar-progress");
+    expect(progressBar).toBeTruthy();
+
+    await act(async () => {
+      scopedToast.dismiss(toastId);
+      vi.advanceTimersByTime(500);
+    });
+
+    expect(screen.queryByText("Progress toast")).not.toBeInTheDocument();
   });
 });

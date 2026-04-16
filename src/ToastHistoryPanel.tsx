@@ -31,9 +31,7 @@ export function ToastHistoryPanel({
 
   return (
     <section
-      className={["toaststar-history-panel", className]
-        .filter(Boolean)
-        .join(" ")}
+      className={["toaststar-history-panel", className].filter(Boolean).join(" ")}
       style={{
         ...style,
         ["--toaststar-radius" as string]: resolvedTheme.radius,
@@ -44,8 +42,7 @@ export function ToastHistoryPanel({
         ["--toaststar-blur" as string]: resolvedTheme.blur,
         ["--toaststar-width" as string]: resolvedTheme.width,
         ["--toaststar-accent" as string]: resolvedTheme.accent,
-        ["--toaststar-close-background" as string]:
-          resolvedTheme.closeButtonBackground,
+        ["--toaststar-close-background" as string]: resolvedTheme.closeButtonBackground,
       }}
     >
       <div className="toaststar-history-header">
@@ -78,7 +75,10 @@ export function ToastHistoryPanel({
                 {item.description ? (
                   <div className="toaststar-description">{item.description}</div>
                 ) : null}
-                <time className="toaststar-history-time" dateTime={new Date(item.createdAt).toISOString()}>
+                <time
+                  className="toaststar-history-time"
+                  dateTime={new Date(item.createdAt).toISOString()}
+                >
                   {formatDateTime(item.createdAt)}
                 </time>
               </div>
